@@ -11,6 +11,7 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
+  DEFAULT_DEMO_CREDENTIALS,
   DEMO_USER,
   formatSupabaseUser,
   getStoredDemoUser,
@@ -55,15 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
 
     if (!supabase) {
-      // Supabase is not configured — check if user was previously in demo mode or set default demo user
+      // Supabase is not configured — only restore user if previously authenticated
       const storedDemo = getStoredDemoUser();
-      if (storedDemo) {
-        setUser(storedDemo);
-      } else {
-        // Automatically give seamless demo mode access by default
-        setUser(DEMO_USER);
-        setStoredDemoUser(DEMO_USER);
-      }
+      setUser(storedDemo || null);
       setLoading(false);
       return;
     }
@@ -108,15 +103,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string): Promise<{ error?: string }> => {
       const supabase = getSupabase();
       if (!supabase) {
-        // Fallback demo login
-        const profile: AuthProfile = {
-          ...DEMO_USER,
-          email,
-          fullName: email.split("@")[0] || "Infrastructure Planner",
+        const cleanEmail = email.trim().toLowerCase();
+        const isDefaultMatch =
+          cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase() &&
+          password === DEFAULT_DEMO_CREDENTIALS.password;
+        const isValidCustom = cleanEmail.includes("@") && password.length >= 6;
+
+        if (isDefaultMatch || isValidCustom) {
+          const profile: AuthProfile = {
+            id: "planner-demo-01",
+            email: cleanEmail,
+            fullName:
+              cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase()
+                ? "Lead Infrastructure Planner"
+                : cleanEmail.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            organization: "Metropolitan Development Authority",
+            role: "Lead Infrastructure Planner",
+            isDemo: true,
+          };
+          setUser(profile);
+          setStoredDemoUser(profile);
+          return {};
+        }
+
+        return {
+          error: `Invalid credentials. Please use "${DEFAULT_DEMO_CREDENTIALS.email}" with password "${DEFAULT_DEMO_CREDENTIALS.password}", or click 'Auto-fill'.`,
         };
-        setUser(profile);
-        setStoredDemoUser(profile);
-        return {};
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({

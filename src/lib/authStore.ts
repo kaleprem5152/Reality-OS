@@ -10,9 +10,14 @@ export interface AuthProfile {
   isDemo: boolean;
 }
 
+export const DEFAULT_DEMO_CREDENTIALS = {
+  email: "planner@realityos.internal",
+  password: "realityos2026",
+};
+
 export const DEMO_USER: AuthProfile = {
   id: "demo-planner-01",
-  email: "lead.planner@metro-authority.gov",
+  email: "planner@realityos.internal",
   fullName: "Lead Infrastructure Planner",
   organization: "Metropolitan Development Authority",
   role: "Lead Infrastructure Planner",

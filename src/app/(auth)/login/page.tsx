@@ -50,30 +50,37 @@ function LoginForm() {
         </p>
       </div>
 
-      {/* Demo Fast Access Button */}
-      <div className="mb-6 rounded-lg border border-[#23262C] bg-[#14171C] p-3.5">
-        <div className="flex items-center justify-between text-[11px] text-[#8A909A]">
-          <span className="flex items-center gap-1.5 font-medium text-[#7CD4AE]">
-            <Sparkles size={13} className="text-[#7CD4AE]" /> Instant Evaluation Access
+      {/* Demo Credentials Helper Box */}
+      <div className="mb-5 rounded-lg border border-[#7CD4AE]/30 bg-[#7CD4AE]/5 p-3.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="flex items-center gap-1.5 font-semibold text-[#7CD4AE]">
+            <KeyRound size={13} /> Demo Login Credentials
           </span>
-          <span className="rounded bg-[#23262C] px-1.5 py-0.5 text-[9.5px]">No key required</span>
+          <button
+            type="button"
+            onClick={() => {
+              setEmail("planner@realityos.internal");
+              setPassword("realityos2026");
+              setError(null);
+            }}
+            className="rounded bg-[#7CD4AE]/20 px-2 py-0.5 text-[10.5px] font-semibold text-[#7CD4AE] transition-colors hover:bg-[#7CD4AE]/30"
+          >
+            Auto-fill credentials
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handleDemoAccess}
-          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-md bg-[#23262C] py-2 text-[12.5px] font-medium text-[#F2F3F5] transition-all hover:bg-[#2C3038] hover:text-white"
-        >
-          <KeyRound size={13} />
-          Continue as Lead Planner (Demo Profile)
-        </button>
-      </div>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[#23262C]" />
-        </div>
-        <div className="relative flex justify-center text-[10.5px] uppercase tracking-wider text-[#626975]">
-          <span className="bg-[#0E1013] px-2">or authenticate with credentials</span>
+        <div className="mt-2.5 space-y-1 text-[12px] text-[#C4C9D0]">
+          <div className="flex items-center justify-between">
+            <span className="text-[#8A909A]">Email:</span>
+            <code className="rounded border border-[#23262C] bg-[#0A0B0D] px-2 py-0.5 font-mono text-[11.5px] text-[#F2F3F5]">
+              planner@realityos.internal
+            </code>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#8A909A]">Password:</span>
+            <code className="rounded border border-[#23262C] bg-[#0A0B0D] px-2 py-0.5 font-mono text-[11.5px] text-[#F2F3F5]">
+              realityos2026
+            </code>
+          </div>
         </div>
       </div>
 
@@ -134,8 +141,26 @@ function LoginForm() {
           disabled={loading}
           className="group flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:opacity-50"
         >
-          {loading ? "Authenticating…" : "Sign In"}
+          {loading ? "Authenticating…" : "Sign In with Credentials"}
           <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+        </button>
+
+        <div className="relative my-3">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-[#23262C]" />
+          </div>
+          <div className="relative flex justify-center text-[10.5px] uppercase tracking-wider text-[#626975]">
+            <span className="bg-[#0E1013] px-2">or instant bypass</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDemoAccess}
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-[#23262C] bg-[#14171C] py-2 text-[12px] font-medium text-[#C4C9D0] transition-colors hover:border-[#353945] hover:text-white"
+        >
+          <Sparkles size={13} className="text-[#7CD4AE]" />
+          Continue as Lead Planner (1-Click Demo)
         </button>
       </form>
 

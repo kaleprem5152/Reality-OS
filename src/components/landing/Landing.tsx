@@ -19,6 +19,7 @@ import {
   TrainFront,
 } from "lucide-react";
 import { Globe3D } from "@/components/landing/Globe3D";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { SEED_PROJECTS } from "@/lib/data/seed";
 import { BASELINE_SCENARIO, runScenario } from "@/lib/simulation";
 import { cx } from "@/lib/format";
@@ -138,6 +139,7 @@ const MARQUEE_ITEMS = [
 /* --------------------------------- Landing --------------------------------- */
 
 export function Landing() {
+  const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [heroIn, setHeroIn] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
@@ -211,19 +213,31 @@ export function Landing() {
               <span className="h-1.5 w-1.5 rounded-full bg-[#7CD4AE]" aria-hidden />
               Prototype · deterministic demo data
             </span>
-            <Link
-              href="/login"
-              className="text-[13px] font-medium text-[#8A909A] transition-colors hover:text-[#F2F3F5]"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/overview"
-              className="group inline-flex items-center gap-2 rounded-md bg-[#F2F3F5] px-4 py-2 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0]"
-            >
-              Launch workspace
-              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </Link>
+            {user ? (
+              <Link
+                href="/overview"
+                className="group inline-flex items-center gap-2 rounded-md bg-[#F2F3F5] px-4 py-2 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0]"
+              >
+                Go to Workspace
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-[13px] font-medium text-[#8A909A] transition-colors hover:text-[#F2F3F5]"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/login?redirect=/overview"
+                  className="group inline-flex items-center gap-2 rounded-md bg-[#F2F3F5] px-4 py-2 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0]"
+                >
+                  Sign In to Enter
+                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -272,14 +286,14 @@ export function Landing() {
             </p>
             <div className={cx("lp-reveal mt-9 flex flex-wrap items-center gap-4", heroIn && "in")} style={{ transitionDelay: "420ms" }}>
               <Link
-                href="/overview"
+                href={user ? "/overview" : "/login?redirect=/overview"}
                 className="group inline-flex items-center gap-2.5 rounded-lg bg-[#F2F3F5] px-6 py-3.5 text-[15px] font-semibold text-[#0A0B0D] transition-all hover:-translate-y-0.5 hover:bg-[#D8DBE0] hover:shadow-[0_12px_40px_rgba(242,243,245,0.14)]"
               >
-                Enter the Command Center
+                {user ? "Enter the Command Center" : "Sign In to Enter Command Center"}
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
               </Link>
               <Link
-                href="/studio"
+                href={user ? "/studio" : "/login?redirect=/studio"}
                 className="group inline-flex items-center gap-2.5 rounded-lg border border-[#353A42] bg-[rgba(18,20,23,0.55)] px-6 py-3.5 text-[15px] font-medium text-[#F2F3F5] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-[#626975]"
               >
                 <Play size={14} className="text-[#7CD4AE]" aria-hidden />
@@ -334,7 +348,7 @@ export function Landing() {
           {MODULES.map((m, i) => (
             <Reveal key={m.name} delay={i * 60}>
               <Link
-                href={m.href}
+                href={user ? m.href : `/login?redirect=${encodeURIComponent(m.href)}`}
                 onMouseMove={onCardMove}
                 className="lp-card-glow group flex h-full flex-col rounded-xl border border-[#23262C] bg-[#121417] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-[#353A42]"
               >
