@@ -213,31 +213,19 @@ export function Landing() {
               <span className="h-1.5 w-1.5 rounded-full bg-[#7CD4AE]" aria-hidden />
               Prototype · deterministic demo data
             </span>
-            {user ? (
-              <Link
-                href="/overview"
-                className="group inline-flex items-center gap-2 rounded-md bg-[#F2F3F5] px-4 py-2 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0]"
-              >
-                Go to Workspace
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="text-[13px] font-medium text-[#8A909A] transition-colors hover:text-[#F2F3F5]"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="/login?redirect=/overview"
-                  className="group inline-flex items-center gap-2 rounded-md bg-[#F2F3F5] px-4 py-2 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0]"
-                >
-                  Sign In to Enter
-                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-                </Link>
-              </>
-            )}
+            <Link
+              href="/login"
+              className="text-[13px] font-medium text-[#8A909A] transition-colors hover:text-[#F2F3F5]"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/login?redirect=/overview"
+              className="group inline-flex items-center gap-2 rounded-md bg-[#F2F3F5] px-4 py-2 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0]"
+            >
+              Launch workspace
+              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </Link>
           </div>
         </div>
       </header>
@@ -286,14 +274,14 @@ export function Landing() {
             </p>
             <div className={cx("lp-reveal mt-9 flex flex-wrap items-center gap-4", heroIn && "in")} style={{ transitionDelay: "420ms" }}>
               <Link
-                href={user ? "/overview" : "/login?redirect=/overview"}
+                href="/login?redirect=/overview"
                 className="group inline-flex items-center gap-2.5 rounded-lg bg-[#F2F3F5] px-6 py-3.5 text-[15px] font-semibold text-[#0A0B0D] transition-all hover:-translate-y-0.5 hover:bg-[#D8DBE0] hover:shadow-[0_12px_40px_rgba(242,243,245,0.14)]"
               >
-                {user ? "Enter the Command Center" : "Sign In to Enter Command Center"}
+                Sign In to Enter Command Center
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
               </Link>
               <Link
-                href={user ? "/studio" : "/login?redirect=/studio"}
+                href="/login?redirect=/studio"
                 className="group inline-flex items-center gap-2.5 rounded-lg border border-[#353A42] bg-[rgba(18,20,23,0.55)] px-6 py-3.5 text-[15px] font-medium text-[#F2F3F5] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-[#626975]"
               >
                 <Play size={14} className="text-[#7CD4AE]" aria-hidden />
@@ -348,7 +336,7 @@ export function Landing() {
           {MODULES.map((m, i) => (
             <Reveal key={m.name} delay={i * 60}>
               <Link
-                href={user ? m.href : `/login?redirect=${encodeURIComponent(m.href)}`}
+                href={`/login?redirect=${encodeURIComponent(m.href)}`}
                 onMouseMove={onCardMove}
                 className="lp-card-glow group flex h-full flex-col rounded-xl border border-[#23262C] bg-[#121417] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-[#353A42]"
               >
@@ -393,7 +381,7 @@ export function Landing() {
                 </li>
               ))}
             </ul>
-            <Link href="/twin" className="group mt-8 inline-flex items-center gap-2 text-[14px] font-semibold text-[#7CD4AE]">
+            <Link href="/login?redirect=/twin" className="group mt-8 inline-flex items-center gap-2 text-[14px] font-semibold text-[#7CD4AE]">
               Try the Digital Twin
               <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden />
             </Link>
@@ -462,10 +450,10 @@ export function Landing() {
               in the app, or walk straight into the Command Center.
             </p>
             <Link
-              href="/overview"
+              href="/login?redirect=/overview"
               className="group mt-8 inline-flex items-center gap-2.5 rounded-lg bg-[#7CD4AE] px-7 py-3.5 text-[15px] font-bold text-[#0A0B0D] transition-all hover:-translate-y-0.5 hover:bg-[#6AC79F] hover:shadow-[0_12px_44px_rgba(124,212,174,0.25)]"
             >
-              Launch RealityOS
+              Sign In to Launch RealityOS
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
             </Link>
           </Reveal>
@@ -483,11 +471,11 @@ export function Landing() {
             </div>
           </div>
           <nav className="flex flex-wrap items-center gap-5 text-[12px] text-[#8A909A]">
-            <Link href="/overview" className="transition-colors hover:text-[#F2F3F5]">Command Center</Link>
-            <Link href="/studio" className="transition-colors hover:text-[#F2F3F5]">Planning Studio</Link>
-            <Link href="/twin" className="transition-colors hover:text-[#F2F3F5]">Digital Twin</Link>
-            <Link href="/geo" className="transition-colors hover:text-[#F2F3F5]">Geo Intelligence</Link>
-            <Link href="/reports" className="transition-colors hover:text-[#F2F3F5]">Reports</Link>
+            <Link href="/login?redirect=/overview" className="transition-colors hover:text-[#F2F3F5]">Command Center</Link>
+            <Link href="/login?redirect=/studio" className="transition-colors hover:text-[#F2F3F5]">Planning Studio</Link>
+            <Link href="/login?redirect=/twin" className="transition-colors hover:text-[#F2F3F5]">Digital Twin</Link>
+            <Link href="/login?redirect=/geo" className="transition-colors hover:text-[#F2F3F5]">Geo Intelligence</Link>
+            <Link href="/login?redirect=/reports" className="transition-colors hover:text-[#F2F3F5]">Reports</Link>
             <Link href="/privacy" className="transition-colors hover:text-[#F2F3F5]">Privacy</Link>
             <Link href="/terms" className="transition-colors hover:text-[#F2F3F5]">Terms</Link>
           </nav>

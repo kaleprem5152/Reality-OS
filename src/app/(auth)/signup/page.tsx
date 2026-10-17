@@ -185,16 +185,12 @@ function SignUpForm() {
           </form>
 
           <div className="mt-5 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                signInAsDemo();
-                router.push("/overview");
-              }}
+            <Link
+              href="/login"
               className="inline-flex items-center gap-1.5 text-[12px] text-[#8A909A] transition-colors hover:text-[#7CD4AE]"
             >
-              <Sparkles size={13} /> Skip to instant Demo Mode
-            </button>
+              <Sparkles size={13} /> Or sign in with Demo Credentials
+            </Link>
           </div>
 
           <div className="mt-5 border-t border-[#23262C] pt-4 text-center text-[12px] text-[#8A909A]">

@@ -29,9 +29,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             Back to marketing
           </Link>
           <span className="text-[#353945]">/</span>
-          <Link href="/overview" className="transition-colors hover:text-[#F2F3F5]">
-            Command Center
-          </Link>
+          <span className="text-[#626975]">
+            Authentication Gateway
+          </span>
         </div>
       </header>
 
