@@ -19,6 +19,7 @@ import {
   TrainFront,
 } from "lucide-react";
 import { Globe3D } from "@/components/landing/Globe3D";
+import GlowCursor from "./GlowCursor";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { SEED_PROJECTS } from "@/lib/data/seed";
 import { BASELINE_SCENARIO, runScenario } from "@/lib/simulation";
@@ -306,185 +307,199 @@ export function Landing() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#0A0B0D]" aria-hidden />
       </section>
 
-      {/* ============================== MARQUEE ============================== */}
-      <section className="border-y border-[#23262C] bg-[#0D0F11] py-4">
-        <div className="relative overflow-hidden" style={{ maskImage: "linear-gradient(90deg, transparent, black 12%, black 88%, transparent)" }}>
-          <div className="lp-marquee flex w-max items-center gap-10 whitespace-nowrap pr-10">
-            {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((m, i) => (
-              <span key={i} className="flex items-center gap-10 text-[12.5px] font-medium tracking-wide text-[#626975]">
-                {m}
-                <span className="h-1 w-1 rounded-full bg-[#7CD4AE]/60" aria-hidden />
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ==================== REMAINING PAGE WITH GLOW CURSOR ==================== */}
+      <div className="relative w-full">
+        <GlowCursor
+          color="#10b981"
+          intensity={1.3}
+          trailWidth={3}
+          linger={1.4}
+          glow={1.2}
+          clickBurst
+          theme="dark"
+          className="w-full"
+        >
+          {/* ============================== MARQUEE ============================== */}
+          <section className="border-y border-[#23262C] bg-[#0D0F11]/85 backdrop-blur-sm py-4">
+            <div className="relative overflow-hidden" style={{ maskImage: "linear-gradient(90deg, transparent, black 12%, black 88%, transparent)" }}>
+              <div className="lp-marquee flex w-max items-center gap-10 whitespace-nowrap pr-10">
+                {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((m, i) => (
+                  <span key={i} className="flex items-center gap-10 text-[12.5px] font-medium tracking-wide text-[#626975]">
+                    {m}
+                    <span className="h-1 w-1 rounded-full bg-[#7CD4AE]/60" aria-hidden />
+                  </span>
+                ))}
+              </div>
+            </div>
+          </section>
 
-      {/* ============================== MODULES ============================== */}
-      <section id="platform" className="relative mx-auto max-w-[1240px] px-6 py-28">
-        <Reveal>
-          <p className="text-[11px] font-semibold tracking-[0.22em] text-[#7CD4AE]">ONE SYSTEM OF RECORD</p>
-          <h2 className="mt-3 max-w-[640px] text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
-            Eight modules. Every one of them works.
-          </h2>
-          <p className="mt-4 max-w-[560px] text-[15px] leading-7 text-[#8A909A]">
-            Not a deck of mockups — a functioning workspace where briefs become analyses, scenarios, maps, graphs and
-            exportable evidence. Click any module to use it.
-          </p>
-        </Reveal>
-        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {MODULES.map((m, i) => (
-            <Reveal key={m.name} delay={i * 60}>
-              <Link
-                href={`/login?redirect=${encodeURIComponent(m.href)}`}
-                onMouseMove={onCardMove}
-                className="lp-card-glow group flex h-full flex-col rounded-xl border border-[#23262C] bg-[#121417] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-[#353A42]"
-              >
-                <span className="mb-4 grid h-9 w-9 place-items-center rounded-lg border border-[#353A42] bg-[#0D0F11] text-[#C4C9D0] transition-colors group-hover:border-[#7CD4AE]/40 group-hover:text-[#7CD4AE]">
-                  <m.icon size={16} aria-hidden />
-                </span>
-                <p className="text-[14.5px] font-semibold text-[#F2F3F5]">{m.name}</p>
-                <p className="mt-1.5 flex-1 text-[12.5px] leading-5 text-[#8A909A]">{m.desc}</p>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#626975] transition-colors group-hover:text-[#7CD4AE]">
-                  Open module <ArrowUpRight size={12} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden />
-                </span>
-              </Link>
+          {/* ============================== MODULES ============================== */}
+          <section id="platform" className="relative mx-auto max-w-[1240px] px-6 py-28">
+            <Reveal>
+              <p className="text-[11px] font-semibold tracking-[0.22em] text-[#7CD4AE]">ONE SYSTEM OF RECORD</p>
+              <h2 className="mt-3 max-w-[640px] text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
+                Eight modules. Every one of them works.
+              </h2>
+              <p className="mt-4 max-w-[560px] text-[15px] leading-7 text-[#8A909A]">
+                Not a deck of mockups — a functioning workspace where briefs become analyses, scenarios, maps, graphs and
+                exportable evidence. Click any module to use it.
+              </p>
             </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ============================ SCENARIO ENGINE ============================ */}
-      <section id="engine" className="border-y border-[#23262C] bg-[#0D0F11]">
-        <div className="mx-auto grid max-w-[1240px] gap-14 px-6 py-28 lg:grid-cols-2 lg:items-center">
-          <Reveal>
-            <p className="text-[11px] font-semibold tracking-[0.22em] text-[#7CD4AE]">REPRODUCIBLE BY DESIGN</p>
-            <h2 className="mt-3 text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
-              A scenario engine you can defend in a review meeting.
-            </h2>
-            <p className="mt-5 text-[15px] leading-7.5 text-[#8A909A]">
-              Every constant is documented. Identical inputs always produce identical outputs — no decorative
-              randomness, no &ldquo;AI magic&rdquo; presented as engineering. When uncertainty matters, the engine
-              runs <span className="text-[#F2F3F5]">500 real Monte Carlo trials</span> with a fixed seed and explains
-              its assumptions in plain language.
-            </p>
-            <ul className="mt-7 space-y-3.5">
-              {[
-                "Deterministic cost, schedule, capacity and risk model",
-                "Seeded Monte Carlo — P10 / P50 / P90 with histogram",
-                "Trade-offs explained, never just scored",
-                "Scene inputs feed reports, graphs and analysis — one truth",
-              ].map((f) => (
-                <li key={f} className="flex items-start gap-3 text-[13.5px] leading-6 text-[#C4C9D0]">
-                  <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#7CD4AE]" aria-hidden />
-                  {f}
-                </li>
+            <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {MODULES.map((m, i) => (
+                <Reveal key={m.name} delay={i * 60}>
+                  <Link
+                    href={`/login?redirect=${encodeURIComponent(m.href)}`}
+                    onMouseMove={onCardMove}
+                    className="lp-card-glow group flex h-full flex-col rounded-xl border border-[#23262C] bg-[#121417] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-[#353A42]"
+                  >
+                    <span className="mb-4 grid h-9 w-9 place-items-center rounded-lg border border-[#353A42] bg-[#0D0F11] text-[#C4C9D0] transition-colors group-hover:border-[#7CD4AE]/40 group-hover:text-[#7CD4AE]">
+                      <m.icon size={16} aria-hidden />
+                    </span>
+                    <p className="text-[14.5px] font-semibold text-[#F2F3F5]">{m.name}</p>
+                    <p className="mt-1.5 flex-1 text-[12.5px] leading-5 text-[#8A909A]">{m.desc}</p>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#626975] transition-colors group-hover:text-[#7CD4AE]">
+                      Open module <ArrowUpRight size={12} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden />
+                    </span>
+                  </Link>
+                </Reveal>
               ))}
-            </ul>
-            <Link href="/login?redirect=/twin" className="group mt-8 inline-flex items-center gap-2 text-[14px] font-semibold text-[#7CD4AE]">
-              Try the Digital Twin
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden />
-            </Link>
-          </Reveal>
+            </div>
+          </section>
 
-          <Reveal delay={120}>
-            <div className="lp-card-glow rounded-2xl border border-[#23262C] bg-[#121417] p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] font-semibold text-[#F2F3F5]">Baseline scenario — live engine output</p>
-                  <p className="mt-0.5 text-[11px] text-[#626975]">Rendered from runScenario() on this page, not a screenshot</p>
+          {/* ============================ SCENARIO ENGINE ============================ */}
+          <section id="engine" className="border-y border-[#23262C] bg-[#0D0F11]/85 backdrop-blur-sm">
+            <div className="mx-auto grid max-w-[1240px] gap-14 px-6 py-28 lg:grid-cols-2 lg:items-center">
+              <Reveal>
+                <p className="text-[11px] font-semibold tracking-[0.22em] text-[#7CD4AE]">REPRODUCIBLE BY DESIGN</p>
+                <h2 className="mt-3 text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
+                  A scenario engine you can defend in a review meeting.
+                </h2>
+                <p className="mt-5 text-[15px] leading-7.5 text-[#8A909A]">
+                  Every constant is documented. Identical inputs always produce identical outputs — no decorative
+                  randomness, no &ldquo;AI magic&rdquo; presented as engineering. When uncertainty matters, the engine
+                  runs <span className="text-[#F2F3F5]">500 real Monte Carlo trials</span> with a fixed seed and explains
+                  its assumptions in plain language.
+                </p>
+                <ul className="mt-7 space-y-3.5">
+                  {[
+                    "Deterministic cost, schedule, capacity and risk model",
+                    "Seeded Monte Carlo — P10 / P50 / P90 with histogram",
+                    "Trade-offs explained, never just scored",
+                    "Scene inputs feed reports, graphs and analysis — one truth",
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-3 text-[13.5px] leading-6 text-[#C4C9D0]">
+                      <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#7CD4AE]" aria-hidden />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/login?redirect=/twin" className="group mt-8 inline-flex items-center gap-2 text-[14px] font-semibold text-[#7CD4AE]">
+                  Try the Digital Twin
+                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden />
+                </Link>
+              </Reveal>
+
+              <Reveal delay={120}>
+                <div className="lp-card-glow rounded-2xl border border-[#23262C] bg-[#121417] p-6">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[13px] font-semibold text-[#F2F3F5]">Baseline scenario — live engine output</p>
+                      <p className="mt-0.5 text-[11px] text-[#626975]">Rendered from runScenario() on this page, not a screenshot</p>
+                    </div>
+                    <FlaskConical size={16} className="text-[#7CD4AE]" aria-hidden />
+                  </div>
+                  <EngineBar label="Modeled capex vs ₹18,500 cr envelope" pct={Math.min(100, scenario.capex.budgetUtilizationPct)} display={`₹${scenario.capex.totalModeled.toLocaleString("en-IN")} cr`} accent />
+                  <EngineBar label="Demand coverage" pct={Math.min(100, scenario.demand.demandCoveragePct)} display={`${scenario.demand.demandCoveragePct.toFixed(0)}%`} />
+                  <EngineBar label="Composite risk" pct={scenario.risk.score} display={`${scenario.risk.score}/100`} />
+                  <EngineBar label="Sustainability score" pct={scenario.sustainability.score} display={`${scenario.sustainability.score}/100`} accent />
+                  <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[#23262C] pt-5">
+                    <MiniStat k="Duration" v={`${scenario.schedule.estimatedYears} yrs`} />
+                    <MiniStat k="Fleet" v={`${scenario.resources.fleetTrains} trains`} />
+                    <MiniStat k="CO₂ avoided" v={`${(scenario.sustainability.co2AvoidedTonsPerYear / 1000).toFixed(1)}k t/yr`} />
+                  </div>
                 </div>
-                <FlaskConical size={16} className="text-[#7CD4AE]" aria-hidden />
-              </div>
-              <EngineBar label="Modeled capex vs ₹18,500 cr envelope" pct={Math.min(100, scenario.capex.budgetUtilizationPct)} display={`₹${scenario.capex.totalModeled.toLocaleString("en-IN")} cr`} accent />
-              <EngineBar label="Demand coverage" pct={Math.min(100, scenario.demand.demandCoveragePct)} display={`${scenario.demand.demandCoveragePct.toFixed(0)}%`} />
-              <EngineBar label="Composite risk" pct={scenario.risk.score} display={`${scenario.risk.score}/100`} />
-              <EngineBar label="Sustainability score" pct={scenario.sustainability.score} display={`${scenario.sustainability.score}/100`} accent />
-              <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[#23262C] pt-5">
-                <MiniStat k="Duration" v={`${scenario.schedule.estimatedYears} yrs`} />
-                <MiniStat k="Fleet" v={`${scenario.resources.fleetTrains} trains`} />
-                <MiniStat k="CO₂ avoided" v={`${(scenario.sustainability.co2AvoidedTonsPerYear / 1000).toFixed(1)}k t/yr`} />
-              </div>
+              </Reveal>
             </div>
-          </Reveal>
-        </div>
-      </section>
+          </section>
 
-      {/* ============================== WORKFLOW ============================== */}
-      <section id="workflow" className="mx-auto max-w-[1240px] px-6 py-28">
-        <Reveal>
-          <p className="text-[11px] font-semibold tracking-[0.22em] text-[#7CD4AE]">END-TO-END, NOT END-TO-SLIDE</p>
-          <h2 className="mt-3 max-w-[600px] text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
-            From brief to evidence in four moves.
-          </h2>
-        </Reveal>
-        <div className="relative mt-14 grid gap-4 md:grid-cols-4">
-          <div className="pointer-events-none absolute left-0 right-0 top-6 hidden border-t border-dashed border-[#353A42] md:block" aria-hidden />
-          {WORKFLOW.map((s, i) => (
-            <Reveal key={s.n} delay={i * 110} className="relative">
-              <div className="relative z-10 mb-5 grid h-12 w-12 place-items-center rounded-lg border border-[#353A42] bg-[#0D0F11] text-[13px] font-bold tracking-widest text-[#7CD4AE]">
-                {s.n}
-              </div>
-              <p className="text-[15px] font-semibold">{s.title}</p>
-              <p className="mt-2 text-[13px] leading-6 text-[#8A909A]">{s.body}</p>
+          {/* ============================== WORKFLOW ============================== */}
+          <section id="workflow" className="mx-auto max-w-[1240px] px-6 py-28">
+            <Reveal>
+              <p className="text-[11px] font-semibold tracking-[0.22em] text-[#7CD4AE]">END-TO-END, NOT END-TO-SLIDE</p>
+              <h2 className="mt-3 max-w-[600px] text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.08] tracking-[-0.02em]">
+                From brief to evidence in four moves.
+              </h2>
             </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ================================ CTA ================================ */}
-      <section className="border-t border-[#23262C]">
-        <div className="relative mx-auto max-w-[1240px] overflow-hidden px-6 py-28 text-center">
-          <div
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/2"
-            style={{ background: "radial-gradient(closest-side, rgba(124,212,174,0.09), transparent)" }}
-            aria-hidden
-          />
-          <Reveal>
-            <TrainFront size={22} className="mx-auto text-[#7CD4AE]" aria-hidden />
-            <h2 className="mx-auto mt-5 max-w-[680px] text-[clamp(28px,3.6vw,48px)] font-semibold leading-[1.06] tracking-[-0.02em]">
-              A 42-station metro is waiting in the demo workspace.
-            </h2>
-            <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-7 text-[#8A909A]">
-              Press <kbd className="rounded border border-[#353A42] bg-[#121417] px-1.5 py-0.5 text-[11px] font-semibold text-[#F2F3F5]">Ctrl K</kbd> anywhere
-              in the app, or walk straight into the Command Center.
-            </p>
-            <Link
-              href="/login?redirect=/overview"
-              className="group mt-8 inline-flex items-center gap-2.5 rounded-lg bg-[#7CD4AE] px-7 py-3.5 text-[15px] font-bold text-[#0A0B0D] transition-all hover:-translate-y-0.5 hover:bg-[#6AC79F] hover:shadow-[0_12px_44px_rgba(124,212,174,0.25)]"
-            >
-              Sign In to Launch RealityOS
-              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
-            </Link>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* =============================== FOOTER =============================== */}
-      <footer className="border-t border-[#23262C] bg-[#0D0F11]">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-6 px-6 py-10">
-          <div className="flex items-center gap-2.5">
-            <LogoMark size={18} />
-            <div>
-              <p className="text-[13px] font-semibold">RealityOS</p>
-              <p className="text-[10.5px] text-[#626975]">The cognitive OS for intelligent infrastructure</p>
+            <div className="relative mt-14 grid gap-4 md:grid-cols-4">
+              <div className="pointer-events-none absolute left-0 right-0 top-6 hidden border-t border-dashed border-[#353A42] md:block" aria-hidden />
+              {WORKFLOW.map((s, i) => (
+                <Reveal key={s.n} delay={i * 110} className="relative">
+                  <div className="relative z-10 mb-5 grid h-12 w-12 place-items-center rounded-lg border border-[#353A42] bg-[#0D0F11] text-[13px] font-bold tracking-widest text-[#7CD4AE]">
+                    {s.n}
+                  </div>
+                  <p className="text-[15px] font-semibold">{s.title}</p>
+                  <p className="mt-2 text-[13px] leading-6 text-[#8A909A]">{s.body}</p>
+                </Reveal>
+              ))}
             </div>
-          </div>
-          <nav className="flex flex-wrap items-center gap-5 text-[12px] text-[#8A909A]">
-            <Link href="/login?redirect=/overview" className="transition-colors hover:text-[#F2F3F5]">Command Center</Link>
-            <Link href="/login?redirect=/studio" className="transition-colors hover:text-[#F2F3F5]">Planning Studio</Link>
-            <Link href="/login?redirect=/twin" className="transition-colors hover:text-[#F2F3F5]">Digital Twin</Link>
-            <Link href="/login?redirect=/geo" className="transition-colors hover:text-[#F2F3F5]">Geo Intelligence</Link>
-            <Link href="/login?redirect=/reports" className="transition-colors hover:text-[#F2F3F5]">Reports</Link>
-            <Link href="/privacy" className="transition-colors hover:text-[#F2F3F5]">Privacy</Link>
-            <Link href="/terms" className="transition-colors hover:text-[#F2F3F5]">Terms</Link>
-          </nav>
-          <p className="flex items-center gap-2 text-[11px] text-[#626975]">
-            <ScanSearch size={12} aria-hidden />
-            Prototype build · illustrative data · no live government sources
-          </p>
-        </div>
-      </footer>
+          </section>
+
+          {/* ================================ CTA ================================ */}
+          <section className="border-t border-[#23262C]">
+            <div className="relative mx-auto max-w-[1240px] overflow-hidden px-6 py-28 text-center">
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/2"
+                style={{ background: "radial-gradient(closest-side, rgba(124,212,174,0.09), transparent)" }}
+                aria-hidden
+              />
+              <Reveal>
+                <TrainFront size={22} className="mx-auto text-[#7CD4AE]" aria-hidden />
+                <h2 className="mx-auto mt-5 max-w-[680px] text-[clamp(28px,3.6vw,48px)] font-semibold leading-[1.06] tracking-[-0.02em]">
+                  A 42-station metro is waiting in the demo workspace.
+                </h2>
+                <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-7 text-[#8A909A]">
+                  Press <kbd className="rounded border border-[#353A42] bg-[#121417] px-1.5 py-0.5 text-[11px] font-semibold text-[#F2F3F5]">Ctrl K</kbd> anywhere
+                  in the app, or walk straight into the Command Center.
+                </p>
+                <Link
+                  href="/login?redirect=/overview"
+                  className="group mt-8 inline-flex items-center gap-2.5 rounded-lg bg-[#7CD4AE] px-7 py-3.5 text-[15px] font-bold text-[#0A0B0D] transition-all hover:-translate-y-0.5 hover:bg-[#6AC79F] hover:shadow-[0_12px_44px_rgba(124,212,174,0.25)]"
+                >
+                  Sign In to Launch RealityOS
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
+                </Link>
+              </Reveal>
+            </div>
+          </section>
+
+          {/* =============================== FOOTER =============================== */}
+          <footer className="border-t border-[#23262C] bg-[#0D0F11]/90 backdrop-blur-sm">
+            <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-6 px-6 py-10">
+              <div className="flex items-center gap-2.5">
+                <LogoMark size={18} />
+                <div>
+                  <p className="text-[13px] font-semibold">RealityOS</p>
+                  <p className="text-[10.5px] text-[#626975]">The cognitive OS for intelligent infrastructure</p>
+                </div>
+              </div>
+              <nav className="flex flex-wrap items-center gap-5 text-[12px] text-[#8A909A]">
+                <Link href="/login?redirect=/overview" className="transition-colors hover:text-[#F2F3F5]">Command Center</Link>
+                <Link href="/login?redirect=/studio" className="transition-colors hover:text-[#F2F3F5]">Planning Studio</Link>
+                <Link href="/login?redirect=/twin" className="transition-colors hover:text-[#F2F3F5]">Digital Twin</Link>
+                <Link href="/login?redirect=/geo" className="transition-colors hover:text-[#F2F3F5]">Geo Intelligence</Link>
+                <Link href="/login?redirect=/reports" className="transition-colors hover:text-[#F2F3F5]">Reports</Link>
+                <Link href="/privacy" className="transition-colors hover:text-[#F2F3F5]">Privacy</Link>
+                <Link href="/terms" className="transition-colors hover:text-[#F2F3F5]">Terms</Link>
+              </nav>
+              <p className="flex items-center gap-2 text-[11px] text-[#626975]">
+                <ScanSearch size={12} aria-hidden />
+                Prototype build · illustrative data · no live government sources
+              </p>
+            </div>
+          </footer>
+        </GlowCursor>
+      </div>
     </div>
   );
 }
