@@ -6,9 +6,32 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Building, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldAlert, Sparkles, User } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden className="shrink-0">
+      <path
+        fill="#EA4335"
+        d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.1-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.1c0 2.8.7 5.4 1.9 7.8l3.7-2.9z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2-6.4-4.8L1.9 16.9C3.7 20.6 7.5 23.5 12 23.5z"
+      />
+    </svg>
+  );
+}
+
 function SignUpForm() {
   const router = useRouter();
-  const { signUpWithEmail, signInAsDemo } = useAuth();
+  const { signUpWithEmail, signInWithGoogle } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [organization, setOrganization] = useState("");
@@ -17,8 +40,19 @@ function SignUpForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const handleGoogleSignUp = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    const res = await signInWithGoogle("/onboarding");
+    if (res.error) {
+      setError(res.error);
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +118,26 @@ function SignUpForm() {
               <span>{error}</span>
             </div>
           )}
+
+          {/* Primary: Google OAuth Sign-up */}
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            disabled={googleLoading || loading}
+            className="flex w-full items-center justify-center gap-2.5 rounded-md border border-[#2E333D] bg-[#14171C] py-2.5 text-[13px] font-medium text-[#F2F3F5] transition-colors hover:border-[#3E4552] hover:bg-[#1A1E24] disabled:opacity-50"
+          >
+            <GoogleIcon />
+            <span>{googleLoading ? "Connecting to Google…" : "Sign up with Google"}</span>
+          </button>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#23262C]" />
+            </div>
+            <div className="relative flex justify-center text-[10.5px] uppercase tracking-wider text-[#626975]">
+              <span className="bg-[#0E1013] px-2.5">or register with work email</span>
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
@@ -185,7 +239,7 @@ function SignUpForm() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="group mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:opacity-50"
             >
               {loading ? "Creating account…" : "Register Workspace"}

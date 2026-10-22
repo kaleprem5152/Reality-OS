@@ -37,9 +37,9 @@ function ReportsInner() {
 
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [generateOpen, setGenerateOpen] = useState(false);
-  const [genProjectId, setGenProjectId] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(() => params.get("open") || null);
+  const [generateOpen, setGenerateOpen] = useState(() => params.get("generate") === "1");
+  const [genProjectId, setGenProjectId] = useState(() => params.get("project") || "");
   const [genType, setGenType] = useState<string>(REPORT_TYPES[0]);
   const [genBusy, setGenBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
@@ -47,7 +47,9 @@ function ReportsInner() {
   const [pdfBusy, setPdfBusy] = useState(false);
 
   // Deep links
-  useEffect(() => {
+  const [prevParamsStr, setPrevParamsStr] = useState(() => params.toString());
+  if (params.toString() !== prevParamsStr) {
+    setPrevParamsStr(params.toString());
     const open = params.get("open");
     if (open) setSelectedId(open);
     if (params.get("generate") === "1") {
@@ -55,7 +57,7 @@ function ReportsInner() {
       const p = params.get("project");
       if (p) setGenProjectId(p);
     }
-  }, [params]);
+  }
 
   const filtered = useMemo(() => {
     let rows = reports;

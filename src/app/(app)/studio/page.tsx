@@ -61,19 +61,26 @@ export default function StudioPage() {
     };
   }, []);
 
-  // Prefill requirements when project changes (unless user already typed)
-  useEffect(() => {
+  // Prefill requirements when project changes
+  const [prevProjectId, setPrevProjectId] = useState<string | null>(projectId);
+  if (projectId !== prevProjectId) {
+    setPrevProjectId(projectId);
     if (project) {
       setRequirements(project.requirements || `Plan and evaluate ${project.name} in ${project.region}.`);
     }
-  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // Handoff from other pages ("Run planning analysis")
+  const [prevHandoff, setPrevHandoff] = useState(studioHandoff);
+  if (studioHandoff && studioHandoff !== prevHandoff) {
+    setPrevHandoff(studioHandoff);
+    setProjectId(studioHandoff.projectId);
+    setRequirements(studioHandoff.requirements);
+    if (studioHandoff.objectives.length) setObjectives(studioHandoff.objectives);
+  }
+
   useEffect(() => {
     if (studioHandoff) {
-      setProjectId(studioHandoff.projectId);
-      setRequirements(studioHandoff.requirements);
-      if (studioHandoff.objectives.length) setObjectives(studioHandoff.objectives);
       clearStudioHandoff();
     }
   }, [studioHandoff, clearStudioHandoff]);

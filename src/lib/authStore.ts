@@ -25,6 +25,7 @@ export const DEMO_USER: AuthProfile = {
 };
 
 const DEMO_STORAGE_KEY = "realityos_demo_auth_profile";
+const DEMO_COOKIE_NAME = "realityos_demo_session";
 
 export function getStoredDemoUser(): AuthProfile | null {
   if (typeof window === "undefined") return null;
@@ -42,8 +43,10 @@ export function setStoredDemoUser(user: AuthProfile | null): void {
   try {
     if (user) {
       localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(user));
+      document.cookie = `${DEMO_COOKIE_NAME}=1; path=/; max-age=604800; SameSite=Lax`;
     } else {
       localStorage.removeItem(DEMO_STORAGE_KEY);
+      document.cookie = `${DEMO_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
     }
   } catch {
     // Ignore storage quota or access errors

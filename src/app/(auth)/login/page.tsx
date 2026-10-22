@@ -5,18 +5,54 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, ShieldAlert, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getSafeRedirectUrl } from "@/lib/redirect";
+
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden className="shrink-0">
+      <path
+        fill="#EA4335"
+        d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.1-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.1c0 2.8.7 5.4 1.9 7.8l3.7-2.9z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2-6.4-4.8L1.9 16.9C3.7 20.6 7.5 23.5 12 23.5z"
+      />
+    </svg>
+  );
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/overview";
-  const { signInWithEmail, signInAsDemo, isConfigured } = useAuth();
+  const redirect = getSafeRedirectUrl(searchParams.get("redirect"), "/overview");
+  const urlError = searchParams.get("error");
+  const { signInWithGoogle, signInWithEmail, signInAsDemo, isConfigured } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(urlError);
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    const res = await signInWithGoogle(redirect);
+    if (res.error) {
+      setError(res.error);
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +85,33 @@ function LoginForm() {
         <p className="mt-1 text-[13px] text-[#8A909A]">
           Access your infrastructure workspaces, digital twins, and AI models.
         </p>
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-md border border-[#F87171]/20 bg-[#F87171]/10 p-3 text-[12px] text-[#F87171]">
+          <ShieldAlert size={15} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Primary: Google OAuth Sign-in */}
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={googleLoading || loading}
+        className="flex w-full items-center justify-center gap-2.5 rounded-md border border-[#2E333D] bg-[#14171C] py-2.5 text-[13px] font-medium text-[#F2F3F5] transition-colors hover:border-[#3E4552] hover:bg-[#1A1E24] disabled:opacity-50"
+      >
+        <GoogleIcon />
+        <span>{googleLoading ? "Connecting to Google…" : "Continue with Google"}</span>
+      </button>
+
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-[#23262C]" />
+        </div>
+        <div className="relative flex justify-center text-[10.5px] uppercase tracking-wider text-[#626975]">
+          <span className="bg-[#0E1013] px-2.5">or continue with work email</span>
+        </div>
       </div>
 
       {/* Demo Credentials Helper Box */}
@@ -84,13 +147,6 @@ function LoginForm() {
           </div>
         </div>
       </div>
-
-      {error && (
-        <div className="mb-4 flex items-start gap-2.5 rounded-md border border-[#F87171]/20 bg-[#F87171]/10 p-3 text-[12px] text-[#F87171]">
-          <ShieldAlert size={15} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -147,7 +203,7 @@ function LoginForm() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || googleLoading}
           className="group flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:opacity-50"
         >
           {loading ? "Authenticating…" : "Sign In with Credentials"}

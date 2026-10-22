@@ -18,7 +18,10 @@ import {
   saveCurrentProjectId,
   saveSettings,
 } from "@/lib/settings-service";
-import { api } from "@/lib/api-client";
+import { api, type ProjectUpsert } from "@/lib/api-client";
+
+export type ProjectPatch = Partial<ProjectUpsert> & { archived?: boolean; status?: string };
+export type ReportInput = { projectId: string; title: string; reportType: string; status?: string; content: unknown };
 
 interface Notification {
   id: string;
@@ -38,11 +41,11 @@ interface AppState {
   currentProject: Project | null;
   currentProjectId: string | null;
   setCurrentProjectId: (id: string) => void;
-  createProject: (p: Parameters<typeof api.createProject>[0]) => Promise<Project>;
-  updateProject: (id: string, p: Parameters<typeof api.updateProject>[1]) => Promise<void>;
+  createProject: (p: ProjectUpsert) => Promise<Project>;
+  updateProject: (id: string, p: ProjectPatch) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   reports: Report[];
-  createReport: (r: Parameters<typeof api.createReport>[0]) => Promise<Report>;
+  createReport: (r: ReportInput) => Promise<Report>;
   deleteReport: (id: string) => Promise<void>;
   settings: AppSettings;
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -101,6 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadSignal, setReloadSignal] = useState(0);
   const [currentProjectId, setCurrentProjectIdState] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -111,28 +115,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [simRunCount, setSimRunCount] = useState(3); // three calibrated presets ship with the workspace
   const studioNavigateRef = useRef(false);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    let active = true;
+    async function initData() {
+      try {
+        const [p, r] = await Promise.all([api.listProjects(), api.listReports()]);
+        if (!active) return;
+        setProjects(p);
+        setReports(r);
+        setSettings(loadSettings());
+        const stored = loadCurrentProjectId();
+        const featured = p.find((x) => x.featured && !x.archived) ?? p.find((x) => !x.archived) ?? null;
+        const wanted = stored && p.some((x) => x.id === stored) ? stored : featured?.id ?? null;
+        setCurrentProjectIdState(wanted);
+      } catch (e) {
+        if (!active) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load workspace data");
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    void initData();
+    return () => {
+      active = false;
+    };
+  }, [reloadSignal]);
+
+  const retryLoad = useCallback(() => {
     setLoading(true);
     setLoadError(null);
-    try {
-      const [p, r] = await Promise.all([api.listProjects(), api.listReports()]);
-      setProjects(p);
-      setReports(r);
-      setSettings(loadSettings());
-      const stored = loadCurrentProjectId();
-      const featured = p.find((x) => x.featured && !x.archived) ?? p.find((x) => !x.archived) ?? null;
-      const wanted = stored && p.some((x) => x.id === stored) ? stored : featured?.id ?? null;
-      setCurrentProjectIdState(wanted);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load workspace data");
-    } finally {
-      setLoading(false);
-    }
+    setReloadSignal((s) => s + 1);
   }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   /* Single global Ctrl/Cmd+K shortcut registration (one source of truth). */
   useEffect(() => {
@@ -165,13 +180,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveCurrentProjectId(id);
   }, []);
 
-  const createProject = useCallback(async (p: Parameters<typeof api.createProject>[0]) => {
+  const createProject = useCallback(async (p: ProjectUpsert) => {
     const created = await api.createProject(p);
     setProjects((prev) => [...prev, created]);
     return created;
   }, []);
 
-  const updateProject = useCallback(async (id: string, p: Parameters<typeof api.updateProject>[1]) => {
+  const updateProject = useCallback(async (id: string, p: ProjectPatch) => {
     const updated = await api.updateProject(id, p);
     setProjects((prev) => prev.map((x) => (x.id === id ? updated : x)));
   }, []);
@@ -182,7 +197,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReports((prev) => prev.filter((r) => r.projectId !== id));
   }, []);
 
-  const createReport = useCallback(async (r: Parameters<typeof api.createReport>[0]) => {
+  const createReport = useCallback(async (r: ReportInput) => {
     const created = await api.createReport(r);
     setReports((prev) => [created, ...prev]);
     return created;
@@ -233,7 +248,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppState = {
     loading,
     loadError,
-    retryLoad: load,
+    retryLoad,
     projects,
     activeProjects,
     featuredProject,

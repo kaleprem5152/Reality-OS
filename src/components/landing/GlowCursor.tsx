@@ -388,22 +388,24 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
     enabled,
   });
 
-  settingsRef.current = {
-    color: String(color),
-    secondaryColor: secondaryColor ? String(secondaryColor) : "",
-    intensity: Math.max(0, intensity),
-    trailWidth: clamp(trailWidth, 0.5, 40),
-    linger: clamp(linger, 0.1, 10),
-    glow: Math.max(0, glow),
-    hotspot: Math.max(0, hotspot),
-    followSpeed: clamp(followSpeed, 0, 1),
-    grain: Math.max(0, grain),
-    clickBurst,
-    quality: (QUALITY[quality] ? quality : "high") as QualityType,
-    theme,
-    maxDevicePixelRatio,
-    enabled,
-  };
+  useEffect(() => {
+    settingsRef.current = {
+      color: String(color),
+      secondaryColor: secondaryColor ? String(secondaryColor) : "",
+      intensity: Math.max(0, intensity),
+      trailWidth: clamp(trailWidth, 0.5, 40),
+      linger: clamp(linger, 0.1, 10),
+      glow: Math.max(0, glow),
+      hotspot: Math.max(0, hotspot),
+      followSpeed: clamp(followSpeed, 0, 1),
+      grain: Math.max(0, grain),
+      clickBurst,
+      quality: (QUALITY[quality] ? quality : "high") as QualityType,
+      theme,
+      maxDevicePixelRatio,
+      enabled,
+    };
+  });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -671,7 +673,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
-    const use = (
+    const activatePass = (
       pass: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null> },
       texel: [number, number],
     ) => {
@@ -699,7 +701,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
       wide: number = radius,
     ) => {
       if (!passes.splat) return;
-      const u = use(passes.splat, pair.read.texel);
+      const u = activatePass(passes.splat, pair.read.texel);
       gl.uniform1i(u.uTarget, bind(0, pair.read));
       gl.uniform1f(u.uAspect, state.width / state.height);
       gl.uniform2f(u.uA, ax / state.width, 1 - ay / state.height);
@@ -793,17 +795,17 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
       if (!state.targets) return;
       const { velocity, dye, pressure, divergence } = state.targets;
       if (!reduce && passes.divergence && passes.scale && passes.pressure && passes.gradient && passes.advect) {
-        let u = use(passes.divergence, velocity.read.texel);
+        let u = activatePass(passes.divergence, velocity.read.texel);
         gl.uniform1i(u.uVelocity, bind(0, velocity.read));
         draw(divergence);
 
-        u = use(passes.scale, pressure.read.texel);
+        u = activatePass(passes.scale, pressure.read.texel);
         gl.uniform1i(u.uSource, bind(0, pressure.read));
         gl.uniform1f(u.uValue, 0.8);
         draw(pressure.write);
         pressure.swap();
 
-        u = use(passes.pressure, pressure.read.texel);
+        u = activatePass(passes.pressure, pressure.read.texel);
         gl.uniform1i(u.uDivergence, bind(1, divergence));
         for (let i = 0; i < PRESSURE_STEPS; i++) {
           gl.uniform1i(u.uPressure, bind(0, pressure.read));
@@ -811,13 +813,13 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
           pressure.swap();
         }
 
-        u = use(passes.gradient, velocity.read.texel);
+        u = activatePass(passes.gradient, velocity.read.texel);
         gl.uniform1i(u.uPressure, bind(0, pressure.read));
         gl.uniform1i(u.uVelocity, bind(1, velocity.read));
         draw(velocity.write);
         velocity.swap();
 
-        u = use(passes.advect, velocity.read.texel);
+        u = activatePass(passes.advect, velocity.read.texel);
         if (u.uVelocityTexel) gl.uniform2f(u.uVelocityTexel, velocity.read.texel[0], velocity.read.texel[1]);
         gl.uniform1i(u.uVelocity, bind(0, velocity.read));
         gl.uniform1i(u.uSource, bind(0, velocity.read));
@@ -836,7 +838,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
       ];
       const { forward, back } = state.targets;
       if (reduce && passes.advect) {
-        const u = use(passes.advect, dye.read.texel);
+        const u = activatePass(passes.advect, dye.read.texel);
         if (u.uVelocityTexel) gl.uniform2f(u.uVelocityTexel, velocity.read.texel[0], velocity.read.texel[1]);
         gl.uniform1i(u.uVelocity, bind(0, velocity.read));
         gl.uniform1i(u.uSource, bind(1, dye.read));
@@ -847,7 +849,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
         return;
       }
       if (passes.advect && passes.maccormack) {
-        let u = use(passes.advect, dye.read.texel);
+        let u = activatePass(passes.advect, dye.read.texel);
         if (u.uVelocityTexel) gl.uniform2f(u.uVelocityTexel, velocity.read.texel[0], velocity.read.texel[1]);
         gl.uniform1i(u.uVelocity, bind(0, velocity.read));
         gl.uniform1i(u.uSource, bind(1, dye.read));
@@ -857,7 +859,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
         gl.uniform1i(u.uSource, bind(1, forward));
         gl.uniform1f(u.uDt, -dt);
         draw(back);
-        u = use(passes.maccormack, dye.read.texel);
+        u = activatePass(passes.maccormack, dye.read.texel);
         if (u.uVelocityTexel) gl.uniform2f(u.uVelocityTexel, velocity.read.texel[0], velocity.read.texel[1]);
         if (u.uSourceTexel) gl.uniform2f(u.uSourceTexel, dye.read.texel[0], dye.read.texel[1]);
         gl.uniform1i(u.uVelocity, bind(0, velocity.read));
@@ -882,12 +884,12 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
       if (!state.targets || !passes.display) return;
       const { dye, bloom } = state.targets;
       if (s.glow > 0 && passes.prefilter && passes.down && passes.up) {
-        let u = use(passes.prefilter, bloom[0].texel);
+        let u = activatePass(passes.prefilter, bloom[0].texel);
         gl.uniform1i(u.uDye, bind(0, dye.read));
         if (u.uDyeTexel) gl.uniform2f(u.uDyeTexel, dye.read.texel[0], dye.read.texel[1]);
         setShade(u, s);
         draw(bloom[0]);
-        u = use(passes.down, bloom[0].texel);
+        u = activatePass(passes.down, bloom[0].texel);
         for (let i = 1; i < bloom.length; i++) {
           gl.uniform1i(u.uSource, bind(0, bloom[i - 1]));
           if (u.uSourceTexel) gl.uniform2f(u.uSourceTexel, bloom[i - 1].texel[0], bloom[i - 1].texel[1]);
@@ -895,7 +897,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
         }
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
-        u = use(passes.up, bloom[0].texel);
+        u = activatePass(passes.up, bloom[0].texel);
         for (let i = bloom.length - 1; i > 0; i--) {
           gl.uniform1i(u.uSource, bind(0, bloom[i]));
           if (u.uSourceTexel) gl.uniform2f(u.uSourceTexel, bloom[i].texel[0], bloom[i].texel[1]);
@@ -903,7 +905,7 @@ const GlowCursor: React.FC<GlowCursorProps> = ({
         }
         gl.disable(gl.BLEND);
       }
-      const u = use(passes.display, [1 / canvas.width, 1 / canvas.height]);
+      const u = activatePass(passes.display, [1 / canvas.width, 1 / canvas.height]);
       gl.uniform1i(u.uDye, bind(0, dye.read));
       gl.uniform1i(u.uBloom, bind(1, bloom[0]));
       setShade(u, s);

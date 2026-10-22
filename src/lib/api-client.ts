@@ -2,12 +2,31 @@
 
 import type { Project, Report } from "@/lib/types";
 
+import { getSupabase } from "@/lib/supabase";
+
 /** Thin fetch wrapper for the RealityOS API routes. */
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.access_token) {
+        headers["Authorization"] = `Bearer ${data.session.access_token}`;
+      }
+    } catch {
+      // Ignore session retrieval error on unauthenticated requests
+    }
+  }
+
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers,
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {

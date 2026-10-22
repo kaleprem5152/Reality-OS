@@ -18,12 +18,14 @@ import {
   setStoredDemoUser,
   type AuthProfile,
 } from "@/lib/authStore";
+import { getSafeRedirectUrl } from "@/lib/redirect";
 
 interface AuthContextType {
   user: AuthProfile | null;
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
+  signInWithGoogle: (customRedirect?: string) => Promise<{ error?: string }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithEmail: (
     email: string,
@@ -53,18 +55,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
+    let mounted = true;
     const supabase = getSupabase();
 
     if (!supabase) {
-      // Supabase is not configured — only restore user if previously authenticated
-      const storedDemo = getStoredDemoUser();
-      setUser(storedDemo || null);
-      setLoading(false);
+      // Supabase is not configured — restore demo user asynchronously
+      queueMicrotask(() => {
+        if (!mounted) return;
+        const storedDemo = getStoredDemoUser();
+        setUser(storedDemo || null);
+        setLoading(false);
+      });
       return;
     }
 
     // Supabase is configured
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       if (session?.user) {
         setSession(session);
         setUser(formatSupabaseUser(session.user));
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       if (session?.user) {
         setSession(session);
         setUser(formatSupabaseUser(session.user));
@@ -95,9 +103,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
+
+  const signInWithGoogle = useCallback(
+    async (customRedirect?: string): Promise<{ error?: string }> => {
+      const supabase = getSupabase();
+      if (!supabase) {
+        return {
+          error: "Supabase authentication is not configured. Please use Demo Login credentials.",
+        };
+      }
+
+      const redirectPath = getSafeRedirectUrl(customRedirect, "/overview");
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const redirectUrl = `${origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+      return {};
+    },
+    []
+  );
 
   const signInWithEmail = useCallback(
     async (email: string, password: string): Promise<{ error?: string }> => {
@@ -254,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         isConfigured: configured,
+        signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
         signInAsDemo,

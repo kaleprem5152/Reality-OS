@@ -92,9 +92,11 @@ export function CommandPalette() {
   }, [query, projects, router, toggleSidebar, requestStudioRun]);
 
   // clamp selection when results change
-  useEffect(() => {
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (query !== prevQuery) {
+    setPrevQuery(query);
     setIndex(0);
-  }, [query]);
+  }
 
   // focus + restore management
   useEffect(() => {

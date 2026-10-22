@@ -40,14 +40,18 @@ function ProjectsInner() {
   const [showArchived, setShowArchived] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(() => params.get("new") === "1");
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (params.get("new") === "1") setWizardOpen(true);
-  }, [params]);
+  const [prevParamNew, setPrevParamNew] = useState(() => params.get("new"));
+  if (params.get("new") !== prevParamNew) {
+    setPrevParamNew(params.get("new"));
+    if (params.get("new") === "1") {
+      setWizardOpen(true);
+    }
+  }
 
   const filtered = useMemo(() => {
     let rows = projects.filter((p) => (showArchived ? true : !p.archived));
@@ -291,12 +295,11 @@ function Th({
 }) {
   const active = sortKey === col;
   return (
-    <th className={className}>
+    <th className={className} aria-sort={active ? (dir === 1 ? "ascending" : "descending") : undefined}>
       <button
         type="button"
         onClick={() => onSort(col)}
         className={cx("inline-flex items-center gap-1 uppercase tracking-wide transition-colors", active ? "text-primary" : "hover:text-ink")}
-        aria-sort={active ? (dir === 1 ? "ascending" : "descending") : undefined}
       >
         {label}
         {active ? (

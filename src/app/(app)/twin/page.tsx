@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -56,11 +56,10 @@ export default function DigitalTwinPage() {
   const [dirty, setDirty] = useState(false);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportCreated, setReportCreated] = useState<string | null>(null);
-  const dirtyRef = useRef(false);
 
-  // Apply workspace default simulation parameters once, if the user changed them in Settings
-  useEffect(() => {
-    if (dirtyRef.current) return;
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (settings !== prevSettings && !dirty) {
+    setPrevSettings(settings);
     if (
       settings.defaultBudgetCrore !== DEFAULT_SCENARIOS[0].budgetCrore ||
       settings.defaultStations !== DEFAULT_SCENARIOS[0].stations
@@ -89,15 +88,13 @@ export default function DigitalTwinPage() {
         return next;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings]);
+  }
 
   const errors = useMemo(() => validateInputs(scenarios[activeIdx]), [scenarios, activeIdx]);
   const out = outputs[activeIdx];
   const active = scenarios[activeIdx];
 
   const setParam = <K extends keyof ScenarioInputs>(key: K, value: ScenarioInputs[K]) => {
-    dirtyRef.current = true;
     setDirty(true);
     setScenarios((prev) => {
       const next = [...prev];
@@ -120,7 +117,6 @@ export default function DigitalTwinPage() {
     setOutputs(DEFAULT_SCENARIOS.map((s) => runScenario(s)));
     setMc(null);
     setDirty(false);
-    dirtyRef.current = false;
   };
 
   const runMc = () => {

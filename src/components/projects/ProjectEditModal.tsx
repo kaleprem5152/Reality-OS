@@ -36,8 +36,13 @@ export function ProjectEditModal({
   const [busy, setBusy] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (project && open) {
+  const [prevId, setPrevId] = useState<string | null>(null);
+  const [prevOpen, setPrevOpen] = useState(false);
+
+  if (project && (project.id !== prevId || (open && !prevOpen))) {
+    setPrevId(project.id);
+    setPrevOpen(open);
+    if (open) {
       setForm({
         name: project.name,
         description: project.description,
@@ -53,7 +58,9 @@ export function ProjectEditModal({
       setErrors({});
       setApiError(null);
     }
-  }, [project, open]);
+  } else if (!open && prevOpen) {
+    setPrevOpen(false);
+  }
 
   if (!project) return null;
 

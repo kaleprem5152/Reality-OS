@@ -30,11 +30,7 @@ function DetailInner() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [createdBanner, setCreatedBanner] = useState(false);
-
-  useEffect(() => {
-    setCreatedBanner(params.get("created") === "1");
-  }, [params]);
+  const createdBanner = params.get("created") === "1";
 
   if (!project) {
     return (
