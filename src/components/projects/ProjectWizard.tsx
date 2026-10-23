@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui";
@@ -53,6 +53,14 @@ export function ProjectWizard({ open, onClose }: { open: boolean; onClose: () =>
   const [apiError, setApiError] = useState<string | null>(null);
 
   const budgetCrore = useMemo(() => toCrore(draft.budgetInput, draft.currency), [draft]);
+
+  const close = useCallback(() => {
+    if (busy) return;
+    onClose();
+    setStep(1);
+    setErrors({});
+    setApiError(null);
+  }, [busy, onClose]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
@@ -108,14 +116,6 @@ export function ProjectWizard({ open, onClose }: { open: boolean; onClose: () =>
       setBusy(false);
       setApiError(err instanceof Error ? err.message : "Failed to create project");
     }
-  };
-
-  const close = () => {
-    if (busy) return;
-    onClose();
-    setStep(1);
-    setErrors({});
-    setApiError(null);
   };
 
   const togglePrio = (p: string) =>
