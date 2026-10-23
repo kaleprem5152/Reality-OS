@@ -36,7 +36,7 @@ async function ensureSeeded() {
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt),
         })),
-      );
+      ).onConflictDoNothing();
     }
     seeded = true;
   } catch (err) {

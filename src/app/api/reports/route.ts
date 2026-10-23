@@ -31,61 +31,94 @@ async function ensureSeeded() {
     const existing = await db.select({ id: reports.id }).from(reports).limit(1);
     if (existing.length === 0) {
       const metro = SEED_PROJECTS.find((p) => p.featured)!;
-      const metroInDb = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, metro.id)).limit(1);
+      let metroInDb = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, metro.id)).limit(1);
+      if (metroInDb.length === 0) {
+        await db
+          .insert(projects)
+          .values(
+            SEED_PROJECTS.map((p) => ({
+              id: p.id,
+              name: p.name,
+              description: p.description,
+              infraType: p.infraType,
+              region: p.region,
+              status: p.status,
+              budgetCrore: p.budgetCrore,
+              targetCompletion: p.targetCompletion,
+              riskLevel: p.riskLevel,
+              capacityTarget: p.capacityTarget,
+              sustainabilityPriorities: p.sustainabilityPriorities,
+              requirements: p.requirements,
+              stations: p.stations,
+              corridorKm: p.corridorKm,
+              featured: p.featured,
+              archived: p.archived,
+              createdAt: new Date(p.createdAt),
+              updatedAt: new Date(p.updatedAt),
+            })),
+          )
+          .onConflictDoNothing();
+        metroInDb = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, metro.id)).limit(1);
+      }
       if (metroInDb.length > 0) {
         const analysis = buildDemoAnalysis(metro, metro.requirements, [
           "Optimize accessibility",
           "Control capital cost",
           "Deliver by 2032",
         ]);
-        await db.insert(reports).values([
-          {
-            id: "RPT-5001",
-            projectId: metro.id,
-            title: "Metro Intelligence — Structured Planning Analysis",
-            reportType: "Planning Analysis",
-            status: "Final",
-            content: reportFromAnalysis(analysis) as unknown as Record<string, unknown>,
-            createdAt: new Date(Date.now() - 2.2 * 864e5),
-          },
-          {
-            id: "RPT-5002",
-            projectId: metro.id,
-            title: "Metro Intelligence — Land Acquisition Risk Note",
-            reportType: "Risk Assessment",
-            status: "Draft",
-            content: {
-              executiveSummary:
-                "62 land parcels are identified across the two Metro Intelligence corridors; 14 sit on the Phase 1 critical path. Acquisition delay is the highest-rated schedule exposure in the register.",
-              assumptions: ["Parcel count from illustrative alignment GIS overlay.", "Statutory powers assumed in force by award."],
-              costBreakdown: [
-                { label: "Acquisition provision (within land budget)", valueCrore: 1450, note: "14 critical-path parcels" },
-                { label: "Rehabilitation & resettlement provision", valueCrore: 260 },
-              ],
-              milestones: [
-                { phase: "Notification & objections", window: "Months 0–6", detail: "Section notifications for 62 parcels." },
-                { phase: "Valuation & awards", window: "Months 5–14", detail: "Milestone-based escrow releases." },
-              ],
-              riskRegister: [
-                { risk: "Objection-driven delay on critical-path parcels", severity: "High", mitigation: "Early negotiation with escrow milestone incentives." },
-                { risk: "Title disputes in historic core", severity: "Moderate", mitigation: "Title insurance and pre-notification surveys." },
-              ],
-              environmental: ["Heritage precinct conditions apply to 5 parcels adjoining Old Market station."],
-              recommendations: [
-                { title: "Sequence critical-path parcels first", rationale: "Fourteen parcels gate two station boxes and the depot access; acquiring them first compresses schedule float consumption." },
-                { title: "Bind escrow to possession milestones", rationale: "Links disbursement to actual possession, reducing dispute-driven hold-ups." },
-              ],
-              evidence: [
-                { label: "Illustrative parcel overlay (demo dataset)", kind: "Illustrative" },
-                { label: "Scenario engine schedule heuristics", kind: "Internal analysis" },
-              ],
-            } as unknown as Record<string, unknown>,
-            createdAt: new Date(Date.now() - 4.6 * 864e5),
-          },
-        ]);
+        await db
+          .insert(reports)
+          .values([
+            {
+              id: "RPT-5001",
+              projectId: metro.id,
+              title: "Metro Intelligence — Structured Planning Analysis",
+              reportType: "Planning Analysis",
+              status: "Final",
+              content: reportFromAnalysis(analysis) as unknown as Record<string, unknown>,
+              createdAt: new Date(Date.now() - 2.2 * 864e5),
+            },
+            {
+              id: "RPT-5002",
+              projectId: metro.id,
+              title: "Metro Intelligence — Land Acquisition Risk Note",
+              reportType: "Risk Assessment",
+              status: "Draft",
+              content: {
+                executiveSummary:
+                  "62 land parcels are identified across the two Metro Intelligence corridors; 14 sit on the Phase 1 critical path. Acquisition delay is the highest-rated schedule exposure in the register.",
+                assumptions: ["Parcel count from illustrative alignment GIS overlay.", "Statutory powers assumed in force by award."],
+                costBreakdown: [
+                  { label: "Acquisition provision (within land budget)", valueCrore: 1450, note: "14 critical-path parcels" },
+                  { label: "Rehabilitation & resettlement provision", valueCrore: 260 },
+                ],
+                milestones: [
+                  { phase: "Notification & objections", window: "Months 0–6", detail: "Section notifications for 62 parcels." },
+                  { phase: "Valuation & awards", window: "Months 5–14", detail: "Milestone-based escrow releases." },
+                ],
+                riskRegister: [
+                  { risk: "Objection-driven delay on critical-path parcels", severity: "High", mitigation: "Early negotiation with escrow milestone incentives." },
+                  { risk: "Title disputes in historic core", severity: "Moderate", mitigation: "Title insurance and pre-notification surveys." },
+                ],
+                environmental: ["Heritage precinct conditions apply to 5 parcels adjoining Old Market station."],
+                recommendations: [
+                  { title: "Sequence critical-path parcels first", rationale: "Fourteen parcels gate two station boxes and the depot access; acquiring them first compresses schedule float consumption." },
+                  { title: "Bind escrow to possession milestones", rationale: "Links disbursement to actual possession, reducing dispute-driven hold-ups." },
+                ],
+                evidence: [
+                  { label: "Illustrative parcel overlay (demo dataset)", kind: "Illustrative" },
+                  { label: "Scenario engine schedule heuristics", kind: "Internal analysis" },
+                ],
+              } as unknown as Record<string, unknown>,
+              createdAt: new Date(Date.now() - 4.6 * 864e5),
+            },
+          ])
+          .onConflictDoNothing();
+        seeded = true;
       }
+    } else {
+      seeded = true;
     }
-    seeded = true;
   } catch (err) {
     console.warn("Reports seed skipped, falling back to memoryStore:", err);
   }
