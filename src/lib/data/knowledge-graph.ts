@@ -1,4 +1,4 @@
-import type { GraphEdge, GraphNode } from "@/lib/types";
+﻿import type { GraphEdge, GraphNode } from "@/lib/types";
 
 /**
  * Typed knowledge-graph dataset for the Metro Intelligence project.
@@ -91,4 +91,119 @@ export const GRAPH_NODE_COLORS: Record<string, string> = {
   Regulation: "#5C6771",
   Dependency: "#94826A",
   Risk: "#D76060",
+  Report: "#5C99E2",
 };
+
+/**
+ * Builds dynamic knowledge graph nodes and edges strictly from the current workspace's
+ * real persisted projects and reports.
+ * If projects or reports do not exist, returns empty arrays.
+ * Dependencies and milestones are not fabricated and are marked as unavailable.
+ */
+export function buildWorkspaceGraph(
+  projects: import("@/lib/types").Project[],
+  reports: import("@/lib/types").Report[],
+  _currency: "INR" | "USD" = "INR",
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  if (!projects || projects.length === 0) {
+    return { nodes: [], edges: [] };
+  }
+
+  const gNodes: GraphNode[] = [];
+  const gEdges: GraphEdge[] = [];
+
+  const cx = 600;
+  const cy = 380;
+  const numProj = projects.length;
+
+  projects.forEach((proj, idx) => {
+    let px = cx;
+    let py = cy;
+    if (numProj > 1) {
+      const angle = (2 * Math.PI * idx) / numProj - Math.PI / 2;
+      const rx = numProj === 2 ? 260 : 320;
+      const ry = numProj === 2 ? 0 : 200;
+      px = Math.round(cx + rx * Math.cos(angle));
+      py = Math.round(cy + ry * Math.sin(angle));
+    }
+
+    gNodes.push({
+      id: proj.id,
+      label: proj.name,
+      type: "Project",
+      x: px,
+      y: py,
+      detail: proj.description || `${proj.infraType} project in ${proj.region}. Capital envelope: ₹${proj.budgetCrore} cr.`,
+      meta: [
+        { label: "Status", value: proj.status },
+        { label: "Infra Type", value: proj.infraType },
+        { label: "Region", value: proj.region },
+        { label: "Budget", value: `₹${proj.budgetCrore} cr` },
+        { label: "Target Completion", value: proj.targetCompletion },
+        { label: "Risk Level", value: proj.riskLevel },
+        { label: "Corridor Length", value: proj.corridorKm ? `${proj.corridorKm} km` : "Unavailable" },
+        { label: "Station Count", value: proj.stations ? String(proj.stations) : "Unavailable" },
+        { label: "Dependencies & Milestones", value: "Unavailable — No dependency registry configured" },
+      ],
+    });
+
+    // If corridor or station count exist, add corridor node
+    if (proj.corridorKm && proj.corridorKm > 0) {
+      const corId = `${proj.id}-COR`;
+      const corAngle = (2 * Math.PI * idx) / numProj - Math.PI / 2 + 0.3;
+      const corDist = 130;
+      gNodes.push({
+        id: corId,
+        label: `${proj.name} Corridor`,
+        type: "Corridor",
+        x: Math.round(px + corDist * Math.cos(corAngle)),
+        y: Math.round(py + corDist * Math.sin(corAngle)),
+        detail: `${proj.corridorKm} km corridor alignment for ${proj.name}. Station count: ${proj.stations ?? "N/A"}.`,
+        meta: [
+          { label: "Length", value: `${proj.corridorKm} km` },
+          { label: "Stations", value: proj.stations ? String(proj.stations) : "Unavailable" },
+          { label: "Status", value: proj.status },
+        ],
+      });
+      gEdges.push({
+        source: proj.id,
+        target: corId,
+        relation: "alignment",
+        explanation: `${proj.name} specifies a ${proj.corridorKm} km corridor alignment.`,
+      });
+    }
+
+    // Connect reports for this project
+    const projReports = reports.filter((r) => r.projectId === proj.id);
+    projReports.forEach((rpt, rIdx) => {
+      const rAngle = ((2 * Math.PI * (rIdx + 1)) / (projReports.length + 1)) - Math.PI / 2;
+      const rDist = 140;
+      const rx = Math.round(px + rDist * Math.cos(rAngle));
+      const ry = Math.round(py + rDist * Math.sin(rAngle));
+
+      gNodes.push({
+        id: rpt.id,
+        label: rpt.title,
+        type: "Report",
+        x: rx,
+        y: ry,
+        detail: `Report for ${proj.name}. Type: ${rpt.reportType}. Status: ${rpt.status}.`,
+        meta: [
+          { label: "Report Type", value: rpt.reportType },
+          { label: "Status", value: rpt.status },
+          { label: "Project", value: proj.name },
+          { label: "Created", value: new Date(rpt.createdAt).toLocaleDateString() },
+        ],
+      });
+
+      gEdges.push({
+        source: proj.id,
+        target: rpt.id,
+        relation: "evaluated by",
+        explanation: `Report "${rpt.title}" evaluates project ${proj.name}.`,
+      });
+    });
+  });
+
+  return { nodes: gNodes, edges: gEdges };
+}

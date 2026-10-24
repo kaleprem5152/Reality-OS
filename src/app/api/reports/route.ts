@@ -1,17 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { reports, projects } from "@/db/schema";
 import type { Report, ReportContent } from "@/lib/types";
-import { buildDemoAnalysis } from "@/lib/demo-analysis";
-import { reportFromAnalysis } from "@/lib/report-builder";
-import { SEED_PROJECTS } from "@/lib/data/seed";
 import { memoryStore } from "@/lib/memory-store";
-import { eq } from "drizzle-orm";
+import {
+  authenticateApiRequest,
+  canWrite,
+  createApiAuthErrorResponse,
+  jsonForbidden,
+  jsonInternalError,
+  jsonNotFound,
+} from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
-
-let seeded = false;
 
 export function rowToReport(r: typeof reports.$inferSelect): Report {
   return {
@@ -25,165 +27,136 @@ export function rowToReport(r: typeof reports.$inferSelect): Report {
   };
 }
 
-async function ensureSeeded() {
-  if (!db || seeded) return;
-  try {
-    const existing = await db.select({ id: reports.id }).from(reports).limit(1);
-    if (existing.length === 0) {
-      const metro = SEED_PROJECTS.find((p) => p.featured)!;
-      let metroInDb = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, metro.id)).limit(1);
-      if (metroInDb.length === 0) {
-        await db
-          .insert(projects)
-          .values(
-            SEED_PROJECTS.map((p) => ({
-              id: p.id,
-              name: p.name,
-              description: p.description,
-              infraType: p.infraType,
-              region: p.region,
-              status: p.status,
-              budgetCrore: p.budgetCrore,
-              targetCompletion: p.targetCompletion,
-              riskLevel: p.riskLevel,
-              capacityTarget: p.capacityTarget,
-              sustainabilityPriorities: p.sustainabilityPriorities,
-              requirements: p.requirements,
-              stations: p.stations,
-              corridorKm: p.corridorKm,
-              featured: p.featured,
-              archived: p.archived,
-              createdAt: new Date(p.createdAt),
-              updatedAt: new Date(p.updatedAt),
-            })),
-          )
-          .onConflictDoNothing();
-        metroInDb = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, metro.id)).limit(1);
-      }
-      if (metroInDb.length > 0) {
-        const analysis = buildDemoAnalysis(metro, metro.requirements, [
-          "Optimize accessibility",
-          "Control capital cost",
-          "Deliver by 2032",
-        ]);
-        await db
-          .insert(reports)
-          .values([
-            {
-              id: "RPT-5001",
-              projectId: metro.id,
-              title: "Metro Intelligence — Structured Planning Analysis",
-              reportType: "Planning Analysis",
-              status: "Final",
-              content: reportFromAnalysis(analysis) as unknown as Record<string, unknown>,
-              createdAt: new Date(Date.now() - 2.2 * 864e5),
-            },
-            {
-              id: "RPT-5002",
-              projectId: metro.id,
-              title: "Metro Intelligence — Land Acquisition Risk Note",
-              reportType: "Risk Assessment",
-              status: "Draft",
-              content: {
-                executiveSummary:
-                  "62 land parcels are identified across the two Metro Intelligence corridors; 14 sit on the Phase 1 critical path. Acquisition delay is the highest-rated schedule exposure in the register.",
-                assumptions: ["Parcel count from illustrative alignment GIS overlay.", "Statutory powers assumed in force by award."],
-                costBreakdown: [
-                  { label: "Acquisition provision (within land budget)", valueCrore: 1450, note: "14 critical-path parcels" },
-                  { label: "Rehabilitation & resettlement provision", valueCrore: 260 },
-                ],
-                milestones: [
-                  { phase: "Notification & objections", window: "Months 0–6", detail: "Section notifications for 62 parcels." },
-                  { phase: "Valuation & awards", window: "Months 5–14", detail: "Milestone-based escrow releases." },
-                ],
-                riskRegister: [
-                  { risk: "Objection-driven delay on critical-path parcels", severity: "High", mitigation: "Early negotiation with escrow milestone incentives." },
-                  { risk: "Title disputes in historic core", severity: "Moderate", mitigation: "Title insurance and pre-notification surveys." },
-                ],
-                environmental: ["Heritage precinct conditions apply to 5 parcels adjoining Old Market station."],
-                recommendations: [
-                  { title: "Sequence critical-path parcels first", rationale: "Fourteen parcels gate two station boxes and the depot access; acquiring them first compresses schedule float consumption." },
-                  { title: "Bind escrow to possession milestones", rationale: "Links disbursement to actual possession, reducing dispute-driven hold-ups." },
-                ],
-                evidence: [
-                  { label: "Illustrative parcel overlay (demo dataset)", kind: "Illustrative" },
-                  { label: "Scenario engine schedule heuristics", kind: "Internal analysis" },
-                ],
-              } as unknown as Record<string, unknown>,
-              createdAt: new Date(Date.now() - 4.6 * 864e5),
-            },
-          ])
-          .onConflictDoNothing();
-        seeded = true;
-      }
-    } else {
-      seeded = true;
-    }
-  } catch (err) {
-    console.warn("Reports seed skipped, falling back to memoryStore:", err);
-  }
-}
+export async function GET(req: NextRequest) {
+  const auth = await authenticateApiRequest(req);
+  const authError = createApiAuthErrorResponse(auth);
+  if (authError) return authError;
 
-export async function GET() {
-  if (!db) {
+  // Sandbox demo sessions to memory store; never access PostgreSQL
+  if (auth.status === "demo") {
     return NextResponse.json(memoryStore.getReports());
   }
+
+  if (auth.status !== "authenticated") {
+    return jsonInternalError("Unexpected authentication state.");
+  }
+
+  if (!db) {
+    return jsonInternalError("Database connection is not configured.");
+  }
+
   try {
-    await ensureSeeded();
-    const rows = await db.select().from(reports).orderBy(desc(reports.createdAt));
+    const rows = await db
+      .select()
+      .from(reports)
+      .where(eq(reports.workspaceId, auth.workspace.workspaceId))
+      .orderBy(desc(reports.createdAt));
+
     return NextResponse.json(rows.map(rowToReport));
-  } catch (e) {
-    console.warn("DB reports select failed, falling back to memoryStore:", e);
-    return NextResponse.json(memoryStore.getReports());
+  } catch (err) {
+    console.error("Failed to fetch reports:", err);
+    return jsonInternalError("Failed to fetch reports.");
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await authenticateApiRequest(req);
+  const authError = createApiAuthErrorResponse(auth);
+  if (authError) return authError;
+
+  // Enforce mutation permissions: viewers cannot create reports
+  if (!canWrite(auth)) {
+    return jsonForbidden("Insufficient permissions to create reports in this workspace.");
+  }
+
   try {
-    const body = await req.json();
-    const projectId = String(body.projectId ?? "");
-    const title = String(body.title ?? "").trim();
-    const reportType = String(body.reportType ?? "Planning Analysis") as Report["reportType"];
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
+    }
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
+    const b = body as Record<string, unknown>;
+
+    const projectId = String(b.projectId ?? "").trim();
+    const title = String(b.title ?? "").trim();
+    const reportType = (String(b.reportType ?? "Planning Analysis") || "Planning Analysis") as Report["reportType"];
+
     if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
     if (!title) return NextResponse.json({ error: "Report title is required" }, { status: 400 });
-    if (!body.content || typeof body.content !== "object")
+    if (!b.content || typeof b.content !== "object") {
       return NextResponse.json({ error: "Report content is required" }, { status: 400 });
+    }
 
-    if (!db) {
+    // Sandbox demo sessions strictly to memory store
+    if (auth.status === "demo") {
+      const parentProject = memoryStore.getProject(projectId);
+      if (!parentProject) {
+        return jsonNotFound("Project not found");
+      }
+
       const rep = memoryStore.createReport({
         projectId,
         title,
         reportType,
-        status: body.status === "Final" ? "Final" : "Draft",
-        content: body.content as ReportContent,
+        status: b.status === "Final" ? "Final" : "Draft",
+        content: b.content as ReportContent,
       });
       return NextResponse.json(rep, { status: 201 });
     }
 
+    if (auth.status !== "authenticated") {
+      return jsonInternalError("Unexpected authentication state.");
+    }
+
+    if (!db) {
+      return jsonInternalError("Database connection is not configured.");
+    }
+
+    // Verify referenced parent project exists within the same authorized workspace
+    const parentProject = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, projectId),
+          eq(projects.workspaceId, auth.workspace.workspaceId)
+        )
+      )
+      .limit(1);
+
+    if (parentProject.length === 0) {
+      return jsonNotFound("Project not found");
+    }
+
+    // Determine sequential report ID
     const existing = await db.select({ id: reports.id }).from(reports);
     const maxNum = existing.reduce((m: number, row: { id: string }) => {
       const n = parseInt(row.id.replace(/\D/g, ""), 10);
       return Number.isFinite(n) ? Math.max(m, n) : m;
     }, 5000);
+    const id = `RPT-${maxNum + 1}`;
+
     const [row] = await db
       .insert(reports)
       .values({
-        id: `RPT-${maxNum + 1}`,
+        id,
+        workspaceId: auth.workspace.workspaceId,
         projectId,
+        createdBy: auth.user.id,
         title,
         reportType,
-        status: body.status === "Final" ? "Final" : "Draft",
-        content: body.content as Record<string, unknown>,
+        status: b.status === "Final" ? "Final" : "Draft",
+        content: b.content as Record<string, unknown>,
       })
       .returning();
+
     return NextResponse.json(rowToReport(row), { status: 201 });
-  } catch (e) {
-    if (!db) {
-      return NextResponse.json({ error: "Failed to create report" }, { status: 500 });
-    }
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed to create report" },
-      { status: 500 },
-    );
+  } catch (err) {
+    console.error("Failed to create report:", err);
+    return jsonInternalError("Failed to create report.");
   }
 }

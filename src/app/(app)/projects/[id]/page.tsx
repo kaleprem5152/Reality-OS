@@ -14,6 +14,8 @@ import {
   FileText,
   FolderOpen,
   ArrowRight,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { useApp } from "@/components/providers/AppProvider";
 import { ProjectEditModal } from "@/components/projects/ProjectEditModal";
@@ -24,13 +26,23 @@ function DetailInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const params = useSearchParams();
-  const { projects, reports, updateProject, deleteProject, settings, requestStudioRun } = useApp();
+  const { projects, reports, updateProject, deleteProject, settings, requestStudioRun, loading } = useApp();
   const project = projects.find((p) => p.id === id);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const createdBanner = params.get("created") === "1";
+
+  if (loading) {
+    return (
+      <div className="card mx-auto max-w-[1400px] flex flex-col items-center justify-center p-12 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted" aria-hidden />
+        <p className="mt-3 text-[13px] text-muted">Loading project details…</p>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
@@ -51,11 +63,22 @@ function DetailInner() {
 
   const confirmDelete = async () => {
     setBusy(true);
+    setActionError(null);
     try {
       await deleteProject(project.id);
       router.push("/projects");
-    } finally {
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete project");
       setBusy(false);
+    }
+  };
+
+  const toggleArchive = async (archived: boolean) => {
+    setActionError(null);
+    try {
+      await updateProject(project.id, { archived, status: archived ? "Archived" : "Planning" });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update project archive state");
     }
   };
 
@@ -77,6 +100,18 @@ function DetailInner() {
         </div>
       )}
 
+      {actionError && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-[#4D2727] bg-critical-soft px-4 py-3 text-[12.5px] text-critical" role="alert">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} aria-hidden />
+            <span>{actionError}</span>
+          </div>
+          <button type="button" onClick={() => setActionError(null)} className="text-[11.5px] underline hover:no-underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -93,18 +128,18 @@ function DetailInner() {
           <button type="button" className="btn btn-primary" onClick={runAnalysis}>
             <Sparkles size={13.5} aria-hidden /> Run planning analysis
           </button>
-          <Link href="/twin" className="btn btn-secondary">
+          <Link href={`/twin?project=${project.id}`} className="btn btn-secondary">
             <GitCompareArrows size={13.5} aria-hidden /> Compare scenarios
           </Link>
           <button type="button" className="btn btn-secondary" onClick={() => setEditOpen(true)}>
             <PencilLine size={13.5} aria-hidden /> Edit
           </button>
           {project.archived ? (
-            <button type="button" className="btn btn-secondary" onClick={() => void updateProject(project.id, { archived: false })}>
+            <button type="button" className="btn btn-secondary" onClick={() => void toggleArchive(false)}>
               <ArchiveRestore size={13.5} aria-hidden /> Restore
             </button>
           ) : (
-            <button type="button" className="btn btn-secondary" onClick={() => void updateProject(project.id, { archived: true })}>
+            <button type="button" className="btn btn-secondary" onClick={() => void toggleArchive(true)}>
               <Archive size={13.5} aria-hidden /> Archive
             </button>
           )}
@@ -215,7 +250,7 @@ function DetailInner() {
               <button type="button" className="btn btn-secondary justify-start" onClick={runAnalysis}>
                 <Sparkles size={13.5} aria-hidden /> Run planning analysis
               </button>
-              <Link href="/twin" className="btn btn-secondary justify-start">
+              <Link href={`/twin?project=${project.id}`} className="btn btn-secondary justify-start">
                 <GitCompareArrows size={13.5} aria-hidden /> Open in Digital Twin
               </Link>
               <Link href="/graph" className="btn btn-secondary justify-start">

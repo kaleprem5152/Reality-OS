@@ -1,23 +1,116 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, CheckCircle2, RotateCcw } from "lucide-react";
+import {
+  Bot,
+  Check,
+  CheckCircle2,
+  Copy,
+  Mail,
+  RotateCcw,
+  Shield,
+  ShieldAlert,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useApp } from "@/components/providers/AppProvider";
 import { PageHeader } from "@/components/ui";
+import { api } from "@/lib/api-client";
 import { DEFAULT_SETTINGS } from "@/lib/settings-service";
 import { INPUT_BOUNDS } from "@/lib/simulation";
 import { cx } from "@/lib/format";
 
+interface WorkspaceMemberItem {
+  id: string;
+  userId: string;
+  email: string;
+  fullName: string;
+  organization: string;
+  role: "owner" | "admin" | "editor" | "viewer";
+  joinedAt: string;
+}
+
 export default function SettingsPage() {
   const { settings, updateSettings } = useApp();
   const [ai, setAi] = useState<{ configured: boolean; provider: string | null } | null>(null);
+  const [savedBadge, setSavedBadge] = useState(false);
+
+  // Team & Member management state
+  const [members, setMembers] = useState<WorkspaceMemberItem[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("editor");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("viewer");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [memberActionError, setMemberActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/ai/status")
       .then((r) => r.json())
       .then(setAi)
       .catch(() => setAi({ configured: false, provider: null }));
+
+    let alive = true;
+    api.listMembers()
+      .then((res) => {
+        if (!alive) return;
+        setMembers(res.members);
+        setCurrentUserRole(res.currentUserRole);
+        setMembersLoading(false);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setMemberActionError(err.message || "Failed to load workspace members.");
+        setMembersLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
   }, []);
+
+  const handleUpdateSetting = (patch: Partial<typeof settings>) => {
+    updateSettings(patch);
+    setSavedBadge(true);
+    setTimeout(() => setSavedBadge(false), 2000);
+  };
+
+  const handleRoleChange = async (memberId: string, newRole: string) => {
+    setMemberActionError(null);
+    try {
+      await api.updateMemberRole(memberId, newRole);
+      setMembers((prev) =>
+        prev.map((m) => (m.id === memberId ? { ...m, role: newRole as WorkspaceMemberItem["role"] } : m)),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update member role.";
+      setMemberActionError(msg);
+    }
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail || !inviteEmail.includes("@")) return;
+    setInviteBusy(true);
+    setInviteNotice(null);
+    setInviteError(null);
+    try {
+      const res = await api.inviteMember(inviteEmail, inviteRole);
+      const text = `${res.invitation.notice} Direct invite: ${res.invitation.directInviteLink}`;
+      setInviteNotice(text);
+      setInviteEmail("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to issue invitation.";
+      setInviteError(msg);
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const isOwnerOrAdmin = currentUserRole === "owner" || currentUserRole === "admin";
 
   return (
     <div className="mx-auto max-w-[880px]">
@@ -144,6 +237,152 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Workspace Team & Members */}
+        <section className="card" aria-label="Workspace team and members">
+          <div className="card-header">
+            <div>
+              <p className="card-title flex items-center gap-2">
+                <Users size={16} className="text-primary" aria-hidden />
+                Workspace Team & Members
+              </p>
+              <p className="card-sub mt-0.5">
+                Authorized collaborators and role assignments for this workspace
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="tag tag-primary font-mono text-[10.5px]">
+                Your Role: {currentUserRole.toUpperCase()}
+              </span>
+            </div>
+          </div>
+
+          {memberActionError && (
+            <div className="mx-4 mt-4 flex items-center justify-between rounded border border-[#4A2020] bg-critical-soft p-3 text-[12px] text-critical" role="alert">
+              <span>{memberActionError}</span>
+              <button type="button" className="text-critical underline hover:no-underline" onClick={() => setMemberActionError(null)}>Dismiss</button>
+            </div>
+          )}
+
+          {/* Member list */}
+          <div className="divide-y divide-line">
+            {membersLoading ? (
+              <p className="py-6 text-center text-[12px] text-muted">Loading workspace members…</p>
+            ) : members.length === 0 ? (
+              <p className="py-6 text-center text-[12px] text-muted">No members recorded.</p>
+            ) : (
+              members.map((m) => {
+                const initials = (m.fullName || m.email)
+                  .split(" ")
+                  .map((w) => w[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+                return (
+                  <div key={m.id} className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface text-[11px] font-bold text-ink">
+                        {initials}
+                      </span>
+                      <div>
+                        <p className="text-[12.5px] font-medium text-ink">{m.fullName}</p>
+                        <p className="text-[11px] text-muted">{m.email} · {m.organization}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10.5px] text-faint">
+                        Joined {new Date(m.joinedAt).toLocaleDateString()}
+                      </span>
+                      {isOwnerOrAdmin ? (
+                        <select
+                          className="select h-7 py-0.5 text-[11.5px]"
+                          value={m.role}
+                          onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                          aria-label={`Role for ${m.fullName}`}
+                        >
+                          {currentUserRole === "owner" && <option value="owner">Owner</option>}
+                          <option value="admin">Admin</option>
+                          <option value="editor">Editor</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                      ) : (
+                        <span className="tag capitalize">{m.role}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Invitation box */}
+          <div className="border-t border-line bg-app-bg p-4">
+            <p className="text-[12px] font-semibold text-ink">Invite Collaborator</p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              Only workspace owners and administrators can issue invitations.
+            </p>
+
+            {isOwnerOrAdmin ? (
+              <form onSubmit={handleInvite} className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  type="email"
+                  className="input h-8 min-w-[240px] flex-1 py-1 text-[12px]"
+                  placeholder="colleague@authority.gov.in"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  required
+                  aria-label="Invitee email"
+                />
+                <select
+                  className="select h-8 py-1 text-[12px]"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  aria-label="Invited role"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={inviteBusy || !inviteEmail}
+                  className="btn btn-primary btn-sm"
+                >
+                  <UserPlus size={13} aria-hidden />
+                  {inviteBusy ? "Inviting…" : "Invite"}
+                </button>
+              </form>
+            ) : (
+              <div className="mt-2 rounded border border-line bg-surface p-2.5 text-[11.5px] text-muted">
+                <ShieldAlert size={14} className="mr-1.5 inline text-warning" aria-hidden />
+                You are currently a <strong>{currentUserRole}</strong>. Member invitations require Owner or Admin permissions.
+              </div>
+            )}
+
+            {inviteNotice && (
+              <div className="mt-3 flex items-start justify-between gap-3 rounded border border-success/30 bg-success-soft p-3 text-[11.5px] text-success">
+                <span>{inviteNotice}</span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteNotice);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2000);
+                  }}
+                >
+                  {copiedLink ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedLink ? "Copied" : "Copy"}
+                </button>
+              </div>
+            )}
+
+            {inviteError && (
+              <p className="mt-2 text-[11px] text-critical" role="alert">{inviteError}</p>
+            )}
           </div>
         </section>
 

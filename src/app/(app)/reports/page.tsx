@@ -33,7 +33,17 @@ function buildContent(project: Project, type: string): ReportContent {
 
 function ReportsInner() {
   const params = useSearchParams();
-  const { reports, projects, deleteReport, createReport, settings } = useApp();
+  const {
+    reports,
+    projects,
+    deleteReport,
+    createReport,
+    updateReport,
+    loading,
+    loadError,
+    retryLoad,
+    settings,
+  } = useApp();
 
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -45,6 +55,8 @@ function ReportsInner() {
   const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Deep links
   const [prevParamsStr, setPrevParamsStr] = useState(() => params.toString());
@@ -71,9 +83,14 @@ function ReportsInner() {
   const selectedProject = selected ? projects.find((p) => p.id === selected.projectId) ?? null : null;
 
   const generate = async () => {
-    const project = projects.find((p) => p.id === genProjectId);
-    if (!project) return;
+    const targetProjectId = genProjectId || projects[0]?.id;
+    const project = projects.find((p) => p.id === targetProjectId);
+    if (!project) {
+      setActionError("Please select a valid project to generate a report.");
+      return;
+    }
     setGenBusy(true);
+    setActionError(null);
     try {
       const content = buildContent(project, genType);
       const report = await createReport({
@@ -85,6 +102,8 @@ function ReportsInner() {
       });
       setGenerateOpen(false);
       setSelectedId(report.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to generate report.");
     } finally {
       setGenBusy(false);
     }
@@ -93,22 +112,42 @@ function ReportsInner() {
   const exportPdf = async () => {
     if (!selected) return;
     setPdfBusy(true);
+    setActionError(null);
     try {
       // Allow the button to repaint before jsPDF runs
       await new Promise((r) => setTimeout(r, 30));
       exportReportPdf(selected, selectedProject);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to export PDF.");
     } finally {
       setPdfBusy(false);
+    }
+  };
+
+  const toggleStatus = async () => {
+    if (!selected) return;
+    setStatusBusy(true);
+    setActionError(null);
+    try {
+      const nextStatus = selected.status === "Final" ? "Draft" : "Final";
+      await updateReport(selected.id, { status: nextStatus });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update report status.");
+    } finally {
+      setStatusBusy(false);
     }
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setBusy(true);
+    setActionError(null);
     try {
       await deleteReport(deleteTarget.id);
       if (selectedId === deleteTarget.id) setSelectedId(null);
       setDeleteTarget(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete report.");
     } finally {
       setBusy(false);
     }
@@ -120,11 +159,25 @@ function ReportsInner() {
         title="Reports & Evidence"
         subtitle="Retrieve, inspect, and export planning results generated from saved project and analysis data."
         actions={
-          <button type="button" className="btn btn-primary mb-5" onClick={() => setGenerateOpen(true)}>
+          <button type="button" className="btn btn-primary mb-5" onClick={() => { setActionError(null); setGenerateOpen(true); }}>
             <FilePlus2 size={14} aria-hidden /> Generate report
           </button>
         }
       />
+
+      {actionError && (
+        <div className="mb-3 flex items-center justify-between rounded-md border border-danger/40 bg-danger/10 px-4 py-2.5 text-[12px] text-danger" role="alert">
+          <span>{actionError}</span>
+          <button type="button" className="text-danger underline hover:opacity-80" onClick={() => setActionError(null)}>Dismiss</button>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="mb-3 flex items-center justify-between rounded-md border border-danger/40 bg-danger/10 px-4 py-2.5 text-[12px] text-danger" role="alert">
+          <span>Failed to load reports: {loadError}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => retryLoad()}>Retry</button>
+        </div>
+      )}
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[400px_1fr]">
         {/* Register */}
@@ -141,7 +194,12 @@ function ReportsInner() {
             </select>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {reports.length === 0 ? (
+            {loading && reports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <Loader2 size={18} className="animate-spin text-muted" aria-hidden />
+                <p className="mt-2 text-[12px] text-muted">Loading workspace reports…</p>
+              </div>
+            ) : reports.length === 0 ? (
               <EmptyState
                 icon={FileText}
                 title="No saved reports"
@@ -176,7 +234,12 @@ function ReportsInner() {
 
         {/* Viewer */}
         <section className="card flex min-h-0 flex-col overflow-hidden" aria-label="Report viewer">
-          {!selected ? (
+          {loading && !selected ? (
+            <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+              <Loader2 size={20} className="animate-spin text-muted" aria-hidden />
+              <p className="mt-2 text-[12px] text-muted">Loading report details…</p>
+            </div>
+          ) : !selected ? (
             <EmptyState
               icon={FileText}
               title="Select a report"
@@ -195,6 +258,16 @@ function ReportsInner() {
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusTag status={selected.status} />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={toggleStatus}
+                    disabled={statusBusy}
+                    title={selected.status === "Final" ? "Mark report as Draft" : "Mark report as Final"}
+                  >
+                    {statusBusy && <Loader2 size={12} className="animate-spin" aria-hidden />}
+                    {selected.status === "Final" ? "Mark as Draft" : "Finalize Report"}
+                  </button>
                   <button type="button" className="btn btn-primary btn-sm" onClick={exportPdf} disabled={pdfBusy}>
                     {pdfBusy ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Download size={12} aria-hidden />}
                     Export PDF
@@ -256,113 +329,149 @@ function ReportsInner() {
 }
 
 function ReportBody({ report, currency }: { report: Report; currency: "INR" | "USD" }) {
-  const c = report.content;
+  const c = report.content ?? ({} as ReportContent);
+  const assumptions = c.assumptions || [];
+  const costBreakdown = c.costBreakdown || [];
+  const milestones = c.milestones || [];
+  const riskRegister = c.riskRegister || [];
+  const environmental = c.environmental || [];
+  const recommendations = c.recommendations || [];
+  const evidence = c.evidence || [];
+
   return (
     <div className="mx-auto max-w-[760px]">
       <Section n="1" title="Executive summary">
-        <p className="text-[13.5px] leading-6.5 text-ink-2">{c.executiveSummary}</p>
+        <p className="text-[13.5px] leading-6.5 text-ink-2">{c.executiveSummary || "No executive summary available."}</p>
       </Section>
 
       <Section n="2" title="Planning assumptions">
-        <ul className="space-y-1.5">
-          {c.assumptions.map((a) => (
-            <li key={a} className="flex items-start gap-2 text-[12.5px] leading-5 text-muted">
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent-2" aria-hidden /> {a}
-            </li>
-          ))}
-        </ul>
+        {assumptions.length === 0 ? (
+          <p className="text-[12px] text-muted">No assumptions recorded.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {assumptions.map((a) => (
+              <li key={a} className="flex items-start gap-2 text-[12.5px] leading-5 text-muted">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent-2" aria-hidden /> {a}
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section n="3" title="Cost breakdown">
-        <div className="table-wrap rounded-md border border-line">
-          <table className="tbl">
-            <thead><tr><th>Component</th><th className="text-right">Value</th><th>Note</th></tr></thead>
-            <tbody>
-              {c.costBreakdown.map((r) => (
-                <tr key={r.label}>
-                  <td>{r.label}</td>
-                  <td className="text-right font-medium text-ink">{formatCrore(r.valueCrore, currency)}</td>
-                  <td className="text-[11.5px] text-muted">{r.note ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {costBreakdown.length === 0 ? (
+          <p className="text-[12px] text-muted">No cost breakdown available.</p>
+        ) : (
+          <div className="table-wrap rounded-md border border-line">
+            <table className="tbl">
+              <thead><tr><th>Component</th><th className="text-right">Value</th><th>Note</th></tr></thead>
+              <tbody>
+                {costBreakdown.map((r) => (
+                  <tr key={r.label}>
+                    <td>{r.label}</td>
+                    <td className="text-right font-medium text-ink">{formatCrore(r.valueCrore, currency)}</td>
+                    <td className="text-[11.5px] text-muted">{r.note ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
 
       <Section n="4" title="Proposed milestones">
-        <div className="space-y-2">
-          {c.milestones.map((m) => (
-            <div key={m.phase} className="flex gap-4 rounded-md border border-line px-3.5 py-2.5">
-              <div className="w-40 shrink-0">
-                <p className="text-[12px] font-semibold text-ink">{m.phase}</p>
-                <p className="text-[10.5px] text-faint">{m.window}</p>
+        {milestones.length === 0 ? (
+          <p className="text-[12px] text-muted">No milestones proposed.</p>
+        ) : (
+          <div className="space-y-2">
+            {milestones.map((m) => (
+              <div key={m.phase} className="flex gap-4 rounded-md border border-line px-3.5 py-2.5">
+                <div className="w-40 shrink-0">
+                  <p className="text-[12px] font-semibold text-ink">{m.phase}</p>
+                  <p className="text-[10.5px] text-faint">{m.window}</p>
+                </div>
+                <p className="text-[12px] leading-5 text-muted">{m.detail}</p>
               </div>
-              <p className="text-[12px] leading-5 text-muted">{m.detail}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section n="5" title="Risk register">
-        <div className="table-wrap rounded-md border border-line">
-          <table className="tbl">
-            <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
-            <tbody>
-              {c.riskRegister.map((r) => (
-                <tr key={r.risk}>
-                  <td className="font-medium text-ink">{r.risk}</td>
-                  <td><RiskTag level={r.severity} /></td>
-                  <td className="text-[11.5px] text-muted">{r.mitigation}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {riskRegister.length === 0 ? (
+          <p className="text-[12px] text-muted">No risks recorded.</p>
+        ) : (
+          <div className="table-wrap rounded-md border border-line">
+            <table className="tbl">
+              <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+              <tbody>
+                {riskRegister.map((r) => (
+                  <tr key={r.risk}>
+                    <td className="font-medium text-ink">{r.risk}</td>
+                    <td><RiskTag level={r.severity} /></td>
+                    <td className="text-[11.5px] text-muted">{r.mitigation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
 
       <Section n="6" title="Environmental considerations">
-        <ul className="space-y-1.5">
-          {c.environmental.map((e) => (
-            <li key={e} className="flex items-start gap-2 text-[12.5px] leading-5 text-muted">
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden /> {e}
-            </li>
-          ))}
-        </ul>
+        {environmental.length === 0 ? (
+          <p className="text-[12px] text-muted">No environmental considerations recorded.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {environmental.map((e) => (
+              <li key={e} className="flex items-start gap-2 text-[12.5px] leading-5 text-muted">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden /> {e}
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section n="7" title="Recommendations">
-        <div className="space-y-3">
-          {c.recommendations.map((r, i) => (
-            <div key={r.title} className="flex gap-3">
-              <span className="grid h-5.5 w-5.5 shrink-0 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary">{i + 1}</span>
-              <div>
-                <p className="text-[12.5px] font-semibold text-ink">{r.title}</p>
-                <p className="mt-0.5 text-[12px] leading-5 text-muted"><span className="font-medium text-ink-2">Why:</span> {r.rationale}</p>
+        {recommendations.length === 0 ? (
+          <p className="text-[12px] text-muted">No recommendations recorded.</p>
+        ) : (
+          <div className="space-y-3">
+            {recommendations.map((r, i) => (
+              <div key={r.title} className="flex gap-3">
+                <span className="grid h-5.5 w-5.5 shrink-0 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary">{i + 1}</span>
+                <div>
+                  <p className="text-[12.5px] font-semibold text-ink">{r.title}</p>
+                  <p className="mt-0.5 text-[12px] leading-5 text-muted"><span className="font-medium text-ink-2">Why:</span> {r.rationale}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section n="8" title="Evidence and source references">
-        <div className="table-wrap rounded-md border border-line">
-          <table className="tbl">
-            <thead><tr><th>Reference</th><th>Nature</th></tr></thead>
-            <tbody>
-              {c.evidence.map((e) => (
-                <tr key={e.label}>
-                  <td>{e.label}</td>
-                  <td>
-                    <span className={cx("tag", e.kind === "Illustrative" ? "tag-warning" : "tag-primary")}>
-                      {e.kind === "Illustrative" ? "Illustrative" : "Internal analysis"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {evidence.length === 0 ? (
+          <p className="text-[12px] text-muted">No evidence references recorded.</p>
+        ) : (
+          <div className="table-wrap rounded-md border border-line">
+            <table className="tbl">
+              <thead><tr><th>Reference</th><th>Nature</th></tr></thead>
+              <tbody>
+                {evidence.map((e) => (
+                  <tr key={e.label}>
+                    <td>{e.label}</td>
+                    <td>
+                      <span className={cx("tag", e.kind === "Illustrative" ? "tag-warning" : "tag-primary")}>
+                        {e.kind === "Illustrative" ? "Illustrative" : "Internal analysis"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <p className="mt-2 text-[10.5px] leading-4.5 text-faint">
           No external verified sources are attached in this prototype build; illustrative evidence is not a substitute for verified data.
         </p>

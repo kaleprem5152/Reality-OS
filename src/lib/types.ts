@@ -211,7 +211,8 @@ export type GraphNodeType =
   | "Environmental Constraint"
   | "Regulation"
   | "Dependency"
-  | "Risk";
+  | "Risk"
+  | "Report";
 
 export interface GraphNode {
   id: string;

@@ -41,6 +41,7 @@ export default function StudioPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [savedReportId, setSavedReportId] = useState<string | null>(null);
   const [openAgents, setOpenAgents] = useState<number[]>([0, 1]);
 
@@ -92,6 +93,7 @@ export default function StudioPage() {
     }
     setRunning(true);
     setNotice(null);
+    setSaveError(null);
     setSavedReportId(null);
     setResult(null);
 
@@ -130,8 +132,9 @@ export default function StudioPage() {
   };
 
   const saveReport = async () => {
-    if (!result) return;
+    if (!result || saveBusy) return;
     setSaveBusy(true);
+    setSaveError(null);
     try {
       const report = await createReport({
         projectId: result.projectId,
@@ -141,6 +144,8 @@ export default function StudioPage() {
         content: reportFromAnalysis(result),
       });
       setSavedReportId(report.id);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save report.");
     } finally {
       setSaveBusy(false);
     }
@@ -282,6 +287,12 @@ export default function StudioPage() {
                     {saveBusy ? "Saving…" : "Save as report"}
                   </button>
                 </div>
+                {saveError && (
+                  <div className="mx-5 mb-4 flex items-center justify-between gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-[12px] text-danger" role="alert">
+                    <span>{saveError}</span>
+                    <button type="button" className="text-danger underline hover:opacity-80" onClick={() => setSaveError(null)}>Dismiss</button>
+                  </div>
+                )}
                 {savedReportId && (
                   <div className="mx-5 mb-4 flex items-center justify-between gap-2 rounded-md border border-[#1F4A3C] bg-success-soft px-3 py-2 text-[12px] text-success" role="status">
                     <span className="flex items-center gap-2"><CheckCircle2 size={14} aria-hidden /> Saved as report {savedReportId}.</span>

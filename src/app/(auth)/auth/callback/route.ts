@@ -56,6 +56,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Forward legacy or direct invitation links to the acceptance page
+  const invitation = searchParams.get("invitation");
+  if (invitation) {
+    return NextResponse.redirect(new URL(`/invite/${encodeURIComponent(invitation)}`, origin));
+  }
+
   // Fallback if accessed without an authorization code
   return NextResponse.redirect(new URL("/login", origin));
 }

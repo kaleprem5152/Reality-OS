@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { authenticateApiRequest, createApiAuthErrorResponse } from "@/lib/api-auth";
+import { buildDemoAnalysis } from "@/lib/demo-analysis";
+import { memoryStore } from "@/lib/memory-store";
+import type { Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -13,30 +17,72 @@ const AGENT_NAMES = [
 /**
  * Server-side Gemini integration.
  * The API key lives ONLY here on the server (process.env.GEMINI_API_KEY).
- * If no key is configured, returns 503 so the client can switch to the
- * clearly-labeled deterministic demo analysis instead.
+ * Authenticates every caller before invoking Gemini.
+ * Demo requests are strictly routed to local deterministic analysis without consuming API quota.
  */
 export async function POST(req: NextRequest) {
+  // 1. Authenticate caller and verify authorized workspace
+  const auth = await authenticateApiRequest(req);
+  const authError = createApiAuthErrorResponse(auth);
+  if (authError) return authError;
+
+  let payload: {
+    projectId?: string;
+    projectName?: string;
+    infraType?: string;
+    region?: string;
+    budgetCrore?: number;
+    requirements?: string;
+    objectives?: string[];
+    sustainabilityPriorities?: string[];
+  };
+
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ configured: true, error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return NextResponse.json({ configured: true, error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (!payload.requirements || typeof payload.requirements !== "string" || !payload.requirements.trim()) {
+    return NextResponse.json({ configured: true, error: "requirements is required" }, { status: 400 });
+  }
+
+  // 2. Demo mode isolation: strictly local analysis, never invoke Gemini or consume API key
+  if (auth.status === "demo") {
+    const project: Project = (payload.projectId ? memoryStore.getProject(payload.projectId) : null) ?? {
+      id: payload.projectId ?? "PRJ-DEMO",
+      name: payload.projectName ?? "Demonstration Project",
+      description: "",
+      infraType: (payload.infraType as Project["infraType"]) ?? "Rail & Transit",
+      region: payload.region ?? "Capital Region",
+      status: "Planning",
+      budgetCrore: Number(payload.budgetCrore) || 1000,
+      targetCompletion: "2030",
+      riskLevel: "Moderate",
+      capacityTarget: "",
+      sustainabilityPriorities: payload.sustainabilityPriorities ?? [],
+      requirements: payload.requirements,
+      featured: false,
+      archived: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const demoAnalysis = buildDemoAnalysis(project, payload.requirements, payload.objectives ?? []);
+    return NextResponse.json({ analysis: demoAnalysis });
+  }
+
+  // 3. Authenticated Supabase session: verify Gemini API key configuration
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || !apiKey.trim()) {
     return NextResponse.json(
       { configured: false, error: "GEMINI_API_KEY is not configured on the server. Use demo analysis mode." },
       { status: 503 },
     );
-  }
-
-  let payload: {
-    projectName?: string; infraType?: string; region?: string;
-    budgetCrore?: number; requirements?: string; objectives?: string[];
-    sustainabilityPriorities?: string[];
-  };
-  try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ configured: true, error: "Invalid JSON body" }, { status: 400 });
-  }
-  if (!payload.requirements || typeof payload.requirements !== "string") {
-    return NextResponse.json({ configured: true, error: "requirements is required" }, { status: 400 });
   }
 
   const prompt = `You are an infrastructure planning analyst. Produce a structured planning analysis as STRICT JSON (no markdown, no code fences) matching exactly this TypeScript shape:
@@ -86,9 +132,9 @@ Costs must be denominated in ₹ crore and roughly consistent with the envelope.
       );
     }
     if (!res.ok) {
-      const txt = await res.text().catch(() => "");
+      console.error(`Gemini request failed with HTTP ${res.status}`);
       return NextResponse.json(
-        { configured: true, error: `Gemini request failed (${res.status}). ${txt.slice(0, 160)}` },
+        { configured: true, error: "Gemini request failed. Please try again or switch to demo analysis mode." },
         { status: 502 },
       );
     }
@@ -110,8 +156,9 @@ Costs must be denominated in ₹ crore and roughly consistent with the envelope.
 
     const validation = validateAnalysisShape(parsed);
     if (validation) {
+      console.error(`Gemini response failed structure validation: ${validation}`);
       return NextResponse.json(
-        { configured: true, error: `Gemini response failed structure validation: ${validation}` },
+        { configured: true, error: "Gemini response failed structure validation." },
         { status: 502 },
       );
     }
@@ -119,8 +166,14 @@ Costs must be denominated in ₹ crore and roughly consistent with the envelope.
     return NextResponse.json({ analysis: parsed });
   } catch (e) {
     const isAbort = e instanceof Error && e.name === "AbortError";
+    console.error("Gemini invocation error:", isAbort ? "Request timed out" : "Network error");
     return NextResponse.json(
-      { configured: true, error: isAbort ? "Gemini request timed out after 30s." : `Gemini request error: ${e instanceof Error ? e.message : "unknown"}` },
+      {
+        configured: true,
+        error: isAbort
+          ? "Gemini request timed out after 30s."
+          : "Gemini request encountered an error. Please try again or switch to demo analysis mode.",
+      },
       { status: 502 },
     );
   }

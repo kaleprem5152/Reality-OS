@@ -125,8 +125,10 @@ export const memoryStore = {
       ...patch,
       updatedAt: new Date().toISOString(),
     };
-    if (patch.archived) {
+    if (patch.archived === true) {
       updated.status = "Archived";
+    } else if (patch.archived === false && !patch.status) {
+      updated.status = "Planning";
     }
     list[idx] = updated;
     return updated;
@@ -165,6 +167,17 @@ export const memoryStore = {
     };
     list.unshift(newRep);
     return newRep;
+  },
+  updateReport(id: string, patch: Partial<Report>): Report | null {
+    const list = globalForMemory.__realityos_memory_reports!;
+    const idx = list.findIndex((r) => r.id === id);
+    if (idx === -1) return null;
+    const updated: Report = {
+      ...list[idx],
+      ...patch,
+    };
+    list[idx] = updated;
+    return updated;
   },
   deleteReport(id: string): boolean {
     const list = globalForMemory.__realityos_memory_reports!;

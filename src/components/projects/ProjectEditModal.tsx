@@ -31,6 +31,8 @@ export function ProjectEditModal({
     targetCompletion: "",
     capacityTarget: "",
     requirements: "",
+    stations: "",
+    corridorKm: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -54,6 +56,8 @@ export function ProjectEditModal({
         targetCompletion: project.targetCompletion,
         capacityTarget: project.capacityTarget,
         requirements: project.requirements,
+        stations: project.stations !== null && project.stations !== undefined ? String(project.stations) : "",
+        corridorKm: project.corridorKm !== null && project.corridorKm !== undefined ? String(project.corridorKm) : "",
       });
       setErrors({});
       setApiError(null);
@@ -74,11 +78,21 @@ export function ProjectEditModal({
   };
 
   const save = async () => {
+    if (busy) return;
     const e: Record<string, string> = {};
     if (form.name.trim().length < 3) e.name = "Enter a project name (at least 3 characters).";
     const b = Number(form.budget);
     if (!Number.isFinite(b) || b <= 0) e.budget = "Budget must be a positive number (₹ crore).";
     if (!form.targetCompletion.trim()) e.targetCompletion = "Target completion is required.";
+    if (form.corridorKm.trim()) {
+      const km = Number(form.corridorKm);
+      if (!Number.isFinite(km) || km <= 0) e.corridorKm = "Corridor length must be a positive number (km).";
+    }
+    if (form.stations.trim()) {
+      const st = Number(form.stations);
+      if (!Number.isFinite(st) || st <= 0 || !Number.isInteger(st))
+        e.stations = "Station count must be a positive integer.";
+    }
     setErrors(e);
     if (Object.keys(e).length > 0) return;
     setBusy(true);
@@ -95,6 +109,8 @@ export function ProjectEditModal({
         targetCompletion: form.targetCompletion.trim(),
         capacityTarget: form.capacityTarget,
         requirements: form.requirements,
+        stations: form.stations.trim() ? Number(form.stations) : null,
+        corridorKm: form.corridorKm.trim() ? Number(form.corridorKm) : null,
       });
       setBusy(false);
       onClose();
@@ -153,6 +169,16 @@ export function ProjectEditModal({
             <label className="label" htmlFor="e-target">Target completion *</label>
             <input id="e-target" className={cx("input", errors.targetCompletion && "input-error")} value={form.targetCompletion} onChange={(e) => set("targetCompletion", e.target.value)} />
             {errors.targetCompletion && <p className="field-error" role="alert">{errors.targetCompletion}</p>}
+          </div>
+          <div>
+            <label className="label" htmlFor="e-corridor">Corridor alignment (km)</label>
+            <input id="e-corridor" inputMode="decimal" className={cx("input", errors.corridorKm && "input-error")} value={form.corridorKm} onChange={(e) => set("corridorKm", e.target.value)} placeholder="e.g. 68.0" />
+            {errors.corridorKm && <p className="field-error" role="alert">{errors.corridorKm}</p>}
+          </div>
+          <div>
+            <label className="label" htmlFor="e-stations">Proposed stations</label>
+            <input id="e-stations" inputMode="numeric" className={cx("input", errors.stations && "input-error")} value={form.stations} onChange={(e) => set("stations", e.target.value)} placeholder="e.g. 42" />
+            {errors.stations && <p className="field-error" role="alert">{errors.stations}</p>}
           </div>
         </div>
         <div>

@@ -17,6 +17,8 @@ interface Draft {
   budgetInput: string;
   currency: "INR_CR" | "USD_M";
   targetCompletion: string;
+  corridorKmInput: string;
+  stationsInput: string;
   sustainabilityPriorities: string[];
   requirements: string;
 }
@@ -30,6 +32,8 @@ const EMPTY: Draft = {
   budgetInput: "",
   currency: "INR_CR",
   targetCompletion: "",
+  corridorKmInput: "",
+  stationsInput: "",
   sustainabilityPriorities: [],
   requirements: "",
 };
@@ -85,12 +89,22 @@ export function ProjectWizard({ open, onClose }: { open: boolean; onClose: () =>
         e.budgetInput = "Budget must be a positive number.";
       else if (budgetCrore > 500000) e.budgetInput = "Budget looks unreasonably large (max ₹500,000 cr).";
       if (!draft.targetCompletion) e.targetCompletion = "Select a target completion year.";
+      if (draft.corridorKmInput.trim()) {
+        const km = Number(draft.corridorKmInput);
+        if (!Number.isFinite(km) || km <= 0) e.corridorKm = "Corridor length must be a positive number (km).";
+      }
+      if (draft.stationsInput.trim()) {
+        const st = Number(draft.stationsInput);
+        if (!Number.isFinite(st) || st <= 0 || !Number.isInteger(st))
+          e.stations = "Station count must be a positive integer.";
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const submit = async () => {
+    if (busy) return;
     setBusy(true);
     setApiError(null);
     try {
@@ -106,6 +120,8 @@ export function ProjectWizard({ open, onClose }: { open: boolean; onClose: () =>
         capacityTarget: draft.capacityTarget.trim(),
         sustainabilityPriorities: draft.sustainabilityPriorities,
         requirements: draft.requirements.trim(),
+        stations: draft.stationsInput.trim() ? Number(draft.stationsInput) : null,
+        corridorKm: draft.corridorKmInput.trim() ? Number(draft.corridorKmInput) : null,
       });
       setBusy(false);
       setDraft(EMPTY);
@@ -231,6 +247,22 @@ export function ProjectWizard({ open, onClose }: { open: boolean; onClose: () =>
             </select>
             {errors.targetCompletion && <p className="field-error" role="alert">{errors.targetCompletion}</p>}
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="w-corridor">Corridor alignment (km)</label>
+              <input id="w-corridor" inputMode="decimal" className={cx("input", errors.corridorKm && "input-error")}
+                value={draft.corridorKmInput} onChange={(e) => set("corridorKmInput", e.target.value)}
+                placeholder="e.g. 68.0" />
+              {errors.corridorKm && <p className="field-error" role="alert">{errors.corridorKm}</p>}
+            </div>
+            <div>
+              <label className="label" htmlFor="w-stations">Proposed stations</label>
+              <input id="w-stations" inputMode="numeric" className={cx("input", errors.stations && "input-error")}
+                value={draft.stationsInput} onChange={(e) => set("stationsInput", e.target.value)}
+                placeholder="e.g. 42" />
+              {errors.stations && <p className="field-error" role="alert">{errors.stations}</p>}
+            </div>
+          </div>
           <fieldset>
             <legend className="label">Sustainability priorities</legend>
             <div className="flex flex-wrap gap-1.5">
@@ -262,6 +294,8 @@ export function ProjectWizard({ open, onClose }: { open: boolean; onClose: () =>
             <ReviewRow k="Budget" v={`₹${budgetCrore.toLocaleString("en-IN")} crore${draft.currency === "USD_M" ? ` (from $${draft.budgetInput}M)` : ""}`} />
             <ReviewRow k="Target completion" v={draft.targetCompletion} />
             <ReviewRow k="Capacity target" v={draft.capacityTarget || "—"} />
+            {draft.corridorKmInput.trim() && <ReviewRow k="Corridor" v={`${draft.corridorKmInput.trim()} km`} />}
+            {draft.stationsInput.trim() && <ReviewRow k="Stations" v={`${draft.stationsInput.trim()} stations`} />}
             <ReviewRow k="Sustainability" v={draft.sustainabilityPriorities.join(", ") || "None selected"} />
             <ReviewRow k="Requirements" v={draft.requirements ? draft.requirements.slice(0, 160) + (draft.requirements.length > 160 ? "…" : "") : "—"} />
           </dl>

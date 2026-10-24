@@ -46,6 +46,7 @@ interface AppState {
   deleteProject: (id: string) => Promise<void>;
   reports: Report[];
   createReport: (r: ReportInput) => Promise<Report>;
+  updateReport: (id: string, patch: Partial<{ title: string; status: string; content: unknown }>) => Promise<void>;
   deleteReport: (id: string) => Promise<void>;
   settings: AppSettings;
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -203,6 +204,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return created;
   }, []);
 
+  const updateReport = useCallback(async (id: string, patch: Partial<{ title: string; status: string; content: unknown }>) => {
+    const updated = await api.updateReport(id, patch);
+    setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
+  }, []);
+
   const deleteReport = useCallback(async (id: string) => {
     await api.deleteReport(id);
     setReports((prev) => prev.filter((x) => x.id !== id));
@@ -260,6 +266,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteProject,
     reports,
     createReport,
+    updateReport,
     deleteReport,
     settings,
     updateSettings,

@@ -109,7 +109,10 @@ export default function CommandCenter() {
             <Link href="/projects?new=1" className="btn btn-primary">
               <FilePlus2 size={14} aria-hidden /> New Project
             </Link>
-            <Link href="/twin" className="btn btn-secondary">
+            <Link
+              href={featuredProject ? `/twin?project=${featuredProject.id}` : "/twin"}
+              className="btn btn-secondary"
+            >
               <FlaskConical size={14} aria-hidden /> Run Simulation
             </Link>
           </>
@@ -140,8 +143,14 @@ export default function CommandCenter() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-10 gap-y-3 sm:grid-cols-4">
-              <FeatureStat label="Proposed stations" value="42" />
-              <FeatureStat label="Planned corridor" value="68 km" />
+              <FeatureStat
+                label="Proposed stations"
+                value={featuredProject.stations ? String(featuredProject.stations) : "—"}
+              />
+              <FeatureStat
+                label="Planned corridor"
+                value={featuredProject.corridorKm ? `${featuredProject.corridorKm} km` : "—"}
+              />
               <FeatureStat label="Capital investment" value={formatCrore(featuredProject.budgetCrore, settings.currency)} />
               <FeatureStat label="Target completion" value={featuredProject.targetCompletion} />
             </div>

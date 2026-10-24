@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { Project, Report } from "@/lib/types";
 
@@ -55,10 +55,13 @@ export interface ProjectUpsert {
   capacityTarget: string;
   sustainabilityPriorities: string[];
   requirements: string;
+  stations?: number | null;
+  corridorKm?: number | null;
 }
 
 export const api = {
   listProjects: () => request<Project[]>("/api/projects"),
+  getProject: (id: string) => request<Project>(`/api/projects/${id}`),
   createProject: (data: ProjectUpsert) =>
     request<Project>("/api/projects", { method: "POST", body: JSON.stringify(data) }),
   updateProject: (id: string, data: Partial<ProjectUpsert> & { archived?: boolean; status?: string }) =>
@@ -67,8 +70,11 @@ export const api = {
     request<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
 
   listReports: () => request<Report[]>("/api/reports"),
+  getReport: (id: string) => request<Report>(`/api/reports/${id}`),
   createReport: (data: { projectId: string; title: string; reportType: string; status?: string; content: unknown }) =>
     request<Report>("/api/reports", { method: "POST", body: JSON.stringify(data) }),
+  updateReport: (id: string, data: Partial<{ title: string; status: string; content: unknown }>) =>
+    request<Report>(`/api/reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteReport: (id: string) =>
     request<{ ok: boolean }>(`/api/reports/${id}`, { method: "DELETE" }),
 
@@ -84,4 +90,78 @@ export const api = {
     sustainabilityPriorities: string[];
   }) =>
     request<{ analysis: unknown }>("/api/ai/analyze", { method: "POST", body: JSON.stringify(payload) }),
+
+  createWorkspace: (name?: string) =>
+    request<{
+      success: boolean;
+      workspace: { id: string; name: string; role: string };
+      alreadyExists?: boolean;
+    }>("/api/workspaces", { method: "POST", body: JSON.stringify({ name }) }),
+
+  getWorkspaces: () =>
+    request<{
+      workspaces: Array<{ id: string; name: string; role: string; joinedAt?: string }>;
+    }>("/api/workspaces"),
+
+  listMembers: () =>
+    request<{
+      members: Array<{
+        id: string;
+        userId: string;
+        email: string;
+        fullName: string;
+        organization: string;
+        role: "owner" | "admin" | "editor" | "viewer";
+        joinedAt: string;
+      }>;
+      isDemo: boolean;
+      currentUserRole: string;
+    }>("/api/workspaces/members"),
+
+  updateMemberRole: (memberId: string, role: string) =>
+    request<{
+      success: boolean;
+      member: { id: string; userId: string; role: string };
+    }>("/api/workspaces/members", {
+      method: "PATCH",
+      body: JSON.stringify({ memberId, role }),
+    }),
+
+  inviteMember: (email: string, role: string) =>
+    request<{
+      success: boolean;
+      invitation: {
+        id?: string;
+        email: string;
+        role: string;
+        status: string;
+        directInviteLink: string;
+        emailDelivered: boolean;
+        notice: string;
+      };
+    }>("/api/workspaces/members", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+
+  getInvitationPreview: (token: string) =>
+    request<{
+      valid: boolean;
+      workspaceName?: string;
+      role?: string;
+      email?: string;
+      expiresAt?: string;
+      error?: string;
+    }>(`/api/workspaces/invitations/accept?token=${encodeURIComponent(token)}`),
+
+  acceptInvitation: (token: string) =>
+    request<{
+      success: boolean;
+      workspaceId: string;
+      role: string;
+      alreadyMember: boolean;
+    }>("/api/workspaces/invitations/accept", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
 };

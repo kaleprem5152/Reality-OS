@@ -97,6 +97,27 @@ function ScaleBar() {
   return null;
 }
 
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const timer = setTimeout(() => map.invalidateSize(), 150);
+    const container = map.getContainer();
+    if (typeof ResizeObserver !== "undefined" && container) {
+      const observer = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      observer.observe(container);
+      return () => {
+        clearTimeout(timer);
+        observer.disconnect();
+      };
+    }
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
+
 export default function GeoMap({
   selection,
   onSelect,
@@ -125,6 +146,7 @@ export default function GeoMap({
       <TileLayer key={baseLayer} url={TILES[baseLayer].url} attribution={TILES[baseLayer].attribution} />
       <ZoomControl position="bottomright" />
       <ScaleBar />
+      <MapResizer />
       <FitAll flyTo={flyTo} fitSignal={fitSignal} />
 
       {layers.catchments &&

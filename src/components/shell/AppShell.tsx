@@ -18,8 +18,13 @@ function ShellBody({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!authLoading && !authUser) {
       router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+    } else if (
+      loadError &&
+      loadError.toLowerCase().includes("no active workspace membership found")
+    ) {
+      router.push("/onboarding");
     }
-  }, [authLoading, authUser, router, pathname]);
+  }, [authLoading, authUser, loadError, router, pathname]);
 
   if (authLoading) {
     return (
@@ -37,21 +42,44 @@ function ShellBody({ children }: { children: ReactNode }) {
   }
 
   if (loadError) {
+    const isNoWorkspace = loadError
+      .toLowerCase()
+      .includes("no active workspace membership found");
+
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="card max-w-md p-8 text-center">
-          <Database size={22} className="mx-auto text-faint" aria-hidden />
-          <h1 className="mt-3 text-[15px] font-semibold text-ink">Workspace data unavailable</h1>
+          <Database
+            size={22}
+            className={`mx-auto ${isNoWorkspace ? "text-primary" : "text-faint"}`}
+            aria-hidden
+          />
+          <h1 className="mt-3 text-[15px] font-semibold text-ink">
+            {isNoWorkspace ? "Workspace Setup Required" : "Workspace data unavailable"}
+          </h1>
           <p className="mt-1 text-xs leading-5 text-muted">
-            The project register could not be loaded. {loadError}
+            {isNoWorkspace
+              ? "You are authenticated, but you have not yet set up an infrastructure workspace. Redirecting to onboarding…"
+              : `The project register could not be loaded. ${loadError}`}
           </p>
-          <button type="button" className="btn btn-primary mt-4" onClick={retryLoad}>
-            <RefreshCw size={14} aria-hidden /> Retry
-          </button>
+          {isNoWorkspace ? (
+            <button
+              type="button"
+              className="btn btn-primary mt-4"
+              onClick={() => router.push("/onboarding")}
+            >
+              Go to Workspace Setup
+            </button>
+          ) : (
+            <button type="button" className="btn btn-primary mt-4" onClick={retryLoad}>
+              <RefreshCw size={14} aria-hidden /> Retry
+            </button>
+          )}
         </div>
       </div>
     );
   }
+
 
   return (
     <div className="flex min-h-screen">

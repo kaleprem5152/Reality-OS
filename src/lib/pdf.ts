@@ -1,7 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
-import type { Project, Report } from "@/lib/types";
+import type { Project, Report, ReportContent } from "@/lib/types";
 import { formatCrore, formatDate } from "@/lib/format";
 
 /**
@@ -131,10 +131,10 @@ export function exportReportPdf(report: Report, project: Project | null): void {
   );
   y += 24;
 
-  const c = report.content;
+  const c = report.content ?? ({} as ReportContent);
 
   heading("Executive summary");
-  body(c.executiveSummary);
+  body(c.executiveSummary || "No executive summary provided.");
 
   if (c.assumptions?.length) {
     heading("Planning assumptions");

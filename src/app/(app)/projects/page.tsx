@@ -15,6 +15,8 @@ import {
   SearchX,
   FolderKanban,
   Trash2,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { useApp } from "@/components/providers/AppProvider";
 import { ProjectWizard } from "@/components/projects/ProjectWizard";
@@ -32,7 +34,7 @@ const STATUS_ORDER = PROJECT_STATUSES;
 function ProjectsInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const { projects, updateProject, deleteProject, settings } = useApp();
+  const { projects, updateProject, deleteProject, settings, loading, loadError, retryLoad } = useApp();
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -44,6 +46,7 @@ function ProjectsInner() {
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [prevParamNew, setPrevParamNew] = useState(() => params.get("new"));
   if (params.get("new") !== prevParamNew) {
@@ -95,17 +98,32 @@ function ProjectsInner() {
   };
 
   const archive = async (p: Project, archived: boolean) => {
-    await updateProject(p.id, { archived });
+    setActionError(null);
+    try {
+      await updateProject(p.id, { archived, status: archived ? "Archived" : "Planning" });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update project archive state");
+    }
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setBusy(true);
+    setActionError(null);
     try {
       await deleteProject(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete project");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleCloseWizard = () => {
+    setWizardOpen(false);
+    if (params.get("new") === "1") {
+      router.replace("/projects");
     }
   };
 
@@ -160,13 +178,39 @@ function ProjectsInner() {
         </span>
       </div>
 
+      {actionError && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-[#4D2727] bg-critical-soft px-4 py-3 text-[12.5px] text-critical" role="alert">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} aria-hidden />
+            <span>{actionError}</span>
+          </div>
+          <button type="button" onClick={() => setActionError(null)} className="text-[11.5px] underline hover:no-underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Register table */}
       <div className="card">
-        {projects.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted" aria-hidden />
+            <p className="mt-3 text-[13px] text-muted">Loading workspace projects…</p>
+          </div>
+        ) : loadError ? (
+          <div className="p-8 text-center">
+            <AlertTriangle className="mx-auto h-6 w-6 text-critical" aria-hidden />
+            <p className="mt-2 text-[14px] font-medium text-ink">Failed to load projects</p>
+            <p className="mt-1 text-[12px] text-muted">{loadError}</p>
+            <button type="button" onClick={retryLoad} className="btn btn-secondary btn-sm mt-4">
+              <RotateCcw size={12} aria-hidden /> Retry
+            </button>
+          </div>
+        ) : projects.length === 0 ? (
           <EmptyState
             icon={FolderKanban}
             title="No projects yet"
-            body="Create your first infrastructure project to begin planning. Seed projects load automatically when the workspace starts."
+            body="Create your first infrastructure project to begin planning. Projects are persisted to your workspace database."
             action={
               <button type="button" className="btn btn-primary btn-sm" onClick={() => setWizardOpen(true)}>
                 <FilePlus2 size={13} aria-hidden /> Create project
@@ -228,7 +272,7 @@ function ProjectsInner() {
                         <Tooltip label="Open">
                           <button type="button" className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-app-bg hover:text-ink"
                             onClick={() => router.push(`/projects/${p.id}`)} aria-label={`Open ${p.name}`}>
-                            <ArrowUpRight size={14} aria-hidden />
+                          <ArrowUpRight size={14} aria-hidden />
                           </button>
                         </Tooltip>
                         <Tooltip label="Edit">
@@ -268,7 +312,7 @@ function ProjectsInner() {
         )}
       </div>
 
-      <ProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      <ProjectWizard open={wizardOpen} onClose={handleCloseWizard} />
       <ProjectEditModal project={editTarget} open={editTarget !== null} onClose={() => setEditTarget(null)} />
       <ConfirmDialog
         open={deleteTarget !== null}

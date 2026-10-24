@@ -53,7 +53,24 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useApp();
   const [wsOpen, setWsOpen] = useState(false);
+  const [workspace, setWorkspace] = useState<{ id: string; name: string; role: string } | null>(null);
   const wsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/workspaces")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!alive) return;
+        if (data.workspaces && data.workspaces.length > 0) {
+          setWorkspace(data.workspaces[0]);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!wsOpen) return;
@@ -63,6 +80,15 @@ export function Sidebar() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [wsOpen]);
+
+  const wsName = workspace?.name || "Metro Development Authority";
+  const wsRole = workspace?.role ? `${workspace.role} role` : "Active workspace";
+  const initials = wsName
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <aside
@@ -83,7 +109,7 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Workspace selector (single demo workspace) */}
+      {/* Workspace selector */}
       <div ref={wsRef} className="relative px-2.5 pb-1 pt-3">
         <button
           type="button"
@@ -96,13 +122,13 @@ export function Sidebar() {
           aria-label="Workspace selector"
         >
           <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary-soft text-[10px] font-bold text-primary">
-            MD
+            {initials || "MD"}
           </span>
           {!sidebarCollapsed && (
             <>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[11px] font-semibold text-ink">Metro Development Authority</span>
-                <span className="block text-[9.5px] text-muted">Demo workspace</span>
+                <span className="block truncate text-[11px] font-semibold text-ink">{wsName}</span>
+                <span className="block capitalize text-[9.5px] text-muted">{wsRole}</span>
               </span>
               <ChevronDown size={13} className={cx("shrink-0 text-faint transition-transform", wsOpen && "rotate-180")} aria-hidden />
             </>
@@ -111,11 +137,11 @@ export function Sidebar() {
         {wsOpen && (
           <div className="anim-pop absolute left-2.5 right-2.5 top-full z-40 mt-1 rounded-md border border-line bg-surface p-1.5 shadow-pop">
             <div className="flex items-center justify-between rounded px-2 py-1.5 text-[11.5px] font-medium text-ink">
-              Metro Development Authority
-              <span className="text-[10px] font-semibold text-success">Active</span>
+              <span className="truncate">{wsName}</span>
+              <span className="shrink-0 text-[10px] font-semibold text-success">Active</span>
             </div>
             <p className="px-2 pb-1.5 pt-0.5 text-[10.5px] leading-4 text-muted">
-              Prototype build ships with a single workspace. Multi-tenancy is out of scope.
+              Role: <span className="font-medium capitalize text-ink-2">{workspace?.role || "Editor"}</span>. Workspace data is strictly isolated.
             </p>
           </div>
         )}
