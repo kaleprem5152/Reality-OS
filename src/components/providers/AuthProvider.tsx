@@ -174,6 +174,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        const cleanEmail = email.trim().toLowerCase();
+        const isDefaultMatch =
+          cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase() &&
+          password === DEFAULT_DEMO_CREDENTIALS.password;
+
+        if (process.env.NODE_ENV !== "production" && isDefaultMatch) {
+          const profile: AuthProfile = {
+            id: "planner-demo-01",
+            email: cleanEmail,
+            fullName: "Lead Infrastructure Planner",
+            organization: "Metropolitan Development Authority",
+            role: "Lead Infrastructure Planner",
+            isDemo: true,
+          };
+          setUser(profile);
+          setStoredDemoUser(profile);
+          return {};
+        }
+
         return { error: error.message };
       }
 

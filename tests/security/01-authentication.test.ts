@@ -304,8 +304,23 @@ describe("01 - Authentication and API Security Test Suite", () => {
       expect((auth as { reason: string }).reason).toContain("production");
     });
 
-    it("getServerAuth permits demo cookie only in non-production environments when Supabase is unconfigured", async () => {
+    it("getServerAuth permits demo cookie in non-production environments when Supabase is unconfigured", async () => {
       vi.stubEnv("NODE_ENV", "development");
+      mockCookiesStore.set("realityos_demo_session", "1");
+
+      const auth = await getServerAuth();
+      expect(auth.status).toBe("demo");
+      expect(auth.user).toBeNull();
+      expect(auth.isDemo).toBe(true);
+      if (auth.status === "demo") {
+        expect(auth.profile.fullName).toBe("Lead Infrastructure Planner");
+      }
+    });
+
+    it("getServerAuth permits demo cookie in non-production environments even when Supabase is configured", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
       mockCookiesStore.set("realityos_demo_session", "1");
 
       const auth = await getServerAuth();

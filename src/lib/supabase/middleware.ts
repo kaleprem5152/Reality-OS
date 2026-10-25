@@ -1,4 +1,4 @@
-﻿import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured } from "./client";
 import { getSafeRedirectUrl } from "../redirect";
@@ -71,9 +71,9 @@ export async function updateSession(request: NextRequest) {
 
   const isApiRoute = pathname.startsWith("/api/");
 
-  // Demo access is strictly limited to non-production environments when Supabase is unconfigured.
-  // Never trust demo cookies in production or whenever Supabase is configured.
-  const allowDemo = !isProduction && !isConfigured;
+  // Demo access is strictly limited to non-production environments (local development).
+  // Never trust demo cookies in production under any circumstances.
+  const allowDemo = !isProduction;
   const demoCookie = request.cookies.get("realityos_demo_session")?.value;
   const isDemo = allowDemo && (demoCookie === "1" || demoCookie === "true");
 

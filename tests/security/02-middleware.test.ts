@@ -144,12 +144,27 @@ describe("02 - Middleware Security Test Suite", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Scenario 10: Demo cookies do not grant access in production or when Supabase is configured
+  // Scenario 10: Demo cookies do not grant access in production, but are permitted in development
   // --------------------------------------------------------------------------
-  describe("10. Demo cookies do not bypass authentication in production or when Supabase is configured", () => {
-    it("rejects demo cookie in production on protected browser pages with redirect to login", async () => {
+  describe("10. Demo cookies do not bypass authentication in production, but are permitted in development", () => {
+    it("rejects demo cookie in production on protected browser pages with redirect to login (Supabase unconfigured)", async () => {
       vi.stubEnv("NODE_ENV", "production");
       setIsConfigured(false);
+
+      const req = createMockNextRequest({
+        url: "http://localhost:3000/overview",
+        demoSession: true,
+      });
+      const res = await updateSession(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/login");
+    });
+
+    it("rejects demo cookie in production on protected browser pages with redirect to login (Supabase configured)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      setIsConfigured(true);
+      setMockUser(null);
 
       const req = createMockNextRequest({
         url: "http://localhost:3000/overview",
@@ -163,7 +178,8 @@ describe("02 - Middleware Security Test Suite", () => {
 
     it("rejects demo cookie in production on API routes with JSON 401", async () => {
       vi.stubEnv("NODE_ENV", "production");
-      setIsConfigured(false);
+      setIsConfigured(true);
+      setMockUser(null);
 
       const req = createMockNextRequest({
         url: "http://localhost:3000/api/projects",
@@ -176,7 +192,7 @@ describe("02 - Middleware Security Test Suite", () => {
       expect(json).toEqual({ error: "Unauthorized" });
     });
 
-    it("rejects demo cookie when Supabase is configured but no Supabase session exists (browser page)", async () => {
+    it("permits demo cookie in local development when Supabase is configured", async () => {
       vi.stubEnv("NODE_ENV", "development");
       setIsConfigured(true);
       setMockUser(null);
@@ -187,27 +203,18 @@ describe("02 - Middleware Security Test Suite", () => {
       });
       const res = await updateSession(req);
 
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/login");
-    });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("location")).toBeNull();
 
-    it("rejects demo cookie when Supabase is configured but no Supabase session exists (API route)", async () => {
-      vi.stubEnv("NODE_ENV", "development");
-      setIsConfigured(true);
-      setMockUser(null);
-
-      const req = createMockNextRequest({
+      const apiReq = createMockNextRequest({
         url: "http://localhost:3000/api/projects",
         demoSession: true,
       });
-      const res = await updateSession(req);
-
-      expect(res.status).toBe(401);
-      const json = await res.json();
-      expect(json).toEqual({ error: "Unauthorized" });
+      const apiRes = await updateSession(apiReq);
+      expect(apiRes.status).toBe(200);
     });
 
-    it("permits demo cookie only in local development when Supabase is unconfigured", async () => {
+    it("permits demo cookie in local development when Supabase is unconfigured", async () => {
       vi.stubEnv("NODE_ENV", "development");
       setIsConfigured(false);
 

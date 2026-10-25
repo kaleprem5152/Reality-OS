@@ -89,7 +89,18 @@ export async function getServerAuth(options: GetServerAuthOptions = {}): Promise
         error,
       } = await supabase.auth.getUser(options.bearerToken || undefined);
 
-      if (error || !user) {
+      if (user && !error) {
+        return {
+          status: "authenticated",
+          user,
+          profile: formatSupabaseUser(user),
+          isDemo: false,
+        };
+      }
+
+      // In production, strictly fail closed when Supabase authentication fails.
+      // Demo mode is NEVER allowed in production under any circumstances.
+      if (isProduction) {
         return {
           status: "unauthenticated",
           user: null,
@@ -99,11 +110,32 @@ export async function getServerAuth(options: GetServerAuthOptions = {}): Promise
         };
       }
 
+      // In non-production (local development), allow demo session fallback if enabled
+      const allowDemo = options.allowDemo ?? true;
+      if (allowDemo) {
+        try {
+          const cookieStore = await cookies();
+          const demoCookie = cookieStore.get("realityos_demo_session")?.value;
+
+          if (demoCookie === "1" || demoCookie === "true") {
+            return {
+              status: "demo",
+              user: null,
+              profile: DEMO_USER,
+              isDemo: true,
+            };
+          }
+        } catch {
+          // cookies() unavailable in non-request contexts
+        }
+      }
+
       return {
-        status: "authenticated",
-        user,
-        profile: formatSupabaseUser(user),
+        status: "unauthenticated",
+        user: null,
+        profile: null,
         isDemo: false,
+        reason: error?.message || "Invalid or expired Supabase session.",
       };
     } catch (err) {
       console.error("Failed to validate Supabase server session:", err);
