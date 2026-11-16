@@ -66,6 +66,7 @@ export interface ReportContent {
   environmental: string[];
   recommendations: { title: string; rationale: string }[];
   evidence: { label: string; kind: "Illustrative" | "Internal analysis" }[];
+  detailedReview?: DetailedAiReview;
 }
 
 /* ---------------------------- Metro schematic ---------------------------- */
@@ -168,6 +169,108 @@ export interface MonteCarloResult {
   assumptions: string[];
 }
 
+/* ------------------------ Detailed AI Review Report ----------------------- */
+
+export type ProjectHealthStatus = "Good" | "Fair" | "Poor" | "Critical";
+export type UrgencyLevel = "Immediate" | "Near-term" | "Medium-term";
+export type PriorityLevel = "High" | "Medium" | "Low";
+
+export interface ReviewExecutiveSummary {
+  overallAssessment: string;
+  projectHealth: ProjectHealthStatus;
+  healthExplanation: string;
+  keyStrengths: string[];
+  keyConcerns: string[];
+}
+
+export interface ReviewProjectUnderstanding {
+  objectivesAndScope: string;
+  expectedOutcomes: string[];
+  currentProgress: string;
+  budgetAndTimelineContext: string;
+  assumptions: string[];
+}
+
+export interface ReviewMilestoneItem {
+  phase: string;
+  window: string;
+  status: "Completed" | "In Progress" | "Pending" | "Unrecorded";
+  detail: string;
+}
+
+export interface ReviewProgressPerformance {
+  milestoneAnalysis: ReviewMilestoneItem[];
+  plannedVsActual: string;
+  schedulePerformance: string;
+  budgetUtilization: string;
+  bottlenecksAndDelays: string[];
+}
+
+export interface DetailedRiskItem {
+  risk: string;
+  likelihood: RiskLevel;
+  impact: RiskLevel;
+  severity: RiskLevel;
+  supportingEvidence: string;
+  mitigation: string;
+  recommendedOwner: string;
+}
+
+export interface ReviewBudgetResource {
+  allocationAndUtilization: { component: string; valueCrore: number; note?: string }[];
+  potentialOverruns: string;
+  resourceConstraints: string[];
+  optimizationOpportunities: string[];
+  figuresNote: string;
+}
+
+export interface ReviewTechnicalOperational {
+  technicalFeasibility: string;
+  implementationConcerns: string[];
+  dependencies: { item: string; criticality: RiskLevel; note: string }[];
+  operationalReadiness: string;
+  qualityConsiderations: string[];
+}
+
+export interface DetailedRecommendation {
+  title: string;
+  priority: PriorityLevel;
+  urgency: UrgencyLevel;
+  whyItMatters: string;
+  expectedBenefit: string;
+  implementationApproach: string;
+}
+
+export interface ActionPlanItem {
+  action: string;
+  owner: string;
+  expectedOutcome: string;
+}
+
+export interface ReviewActionPlan {
+  immediateActions: ActionPlanItem[];
+  shortTermActions: ActionPlanItem[];
+  mediumTermActions: ActionPlanItem[];
+}
+
+export interface ReviewConclusion {
+  outlook: string;
+  criticalIssues: string[];
+  nextSteps: string[];
+}
+
+export interface DetailedAiReview {
+  executiveSummary: ReviewExecutiveSummary;
+  projectUnderstanding: ReviewProjectUnderstanding;
+  progressPerformance: ReviewProgressPerformance;
+  riskAssessment: DetailedRiskItem[];
+  budgetAndResources: ReviewBudgetResource;
+  technicalAndOperational: ReviewTechnicalOperational;
+  recommendations: DetailedRecommendation[];
+  actionPlan: ReviewActionPlan;
+  conclusion: ReviewConclusion;
+}
+
 /* ---------------------------- Planning studio ---------------------------- */
 
 export interface AgentFinding {
@@ -198,6 +301,7 @@ export interface AnalysisResult {
   confidence: { score: number; explanation: string };
   assumptions: string[];
   evidence: { label: string; kind: "Illustrative" | "Internal analysis" }[];
+  detailedReview?: DetailedAiReview;
 }
 
 /* ----------------------------- Knowledge graph ----------------------------- */

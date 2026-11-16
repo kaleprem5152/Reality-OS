@@ -18,6 +18,7 @@ export function reportFromAnalysis(analysis: AnalysisResult): ReportContent {
     environmental: analysis.environmentalConstraints,
     recommendations: analysis.recommendations,
     evidence: analysis.evidence,
+    detailedReview: analysis.detailedReview,
   };
 }
 

@@ -3,9 +3,10 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldAlert, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getSafeRedirectUrl } from "@/lib/redirect";
+import { isValidEmail } from "@/lib/validation";
 
 function GoogleIcon() {
   return (
@@ -41,8 +42,19 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(urlError);
+
+  const isBusy = loading || demoLoading || googleLoading;
+
+  const navigateToDestination = (dest: string) => {
+    if (typeof window !== "undefined") {
+      window.location.href = dest;
+    } else {
+      router.push(dest);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -56,24 +68,44 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBusy) return;
     setError(null);
-    if (!email || !password) {
-      setError("Please enter both email and password.");
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError("Please enter your work email.");
       return;
     }
+    if (!isValidEmail(cleanEmail)) {
+      setError("Please enter a valid work email address (e.g., name@organization.gov).");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
     setLoading(true);
-    const res = await signInWithEmail(email, password);
-    setLoading(false);
+    const res = await signInWithEmail(cleanEmail, password);
     if (res.error) {
       setError(res.error);
+      setLoading(false);
     } else {
-      router.push(redirect);
+      navigateToDestination(redirect);
     }
   };
 
-  const handleDemoAccess = () => {
-    signInAsDemo();
-    router.push(redirect);
+  const handleDemoAccess = async () => {
+    setError(null);
+    setDemoLoading(true);
+    const res = await signInAsDemo();
+    if (res?.error) {
+      setError(res.error);
+      setDemoLoading(false);
+    } else {
+      navigateToDestination(redirect);
+    }
   };
 
   return (
@@ -98,8 +130,8 @@ function LoginForm() {
       <button
         type="button"
         onClick={handleGoogleSignIn}
-        disabled={googleLoading || loading}
-        className="flex w-full items-center justify-center gap-2.5 rounded-md border border-[#2E333D] bg-[#14171C] py-2.5 text-[13px] font-medium text-[#F2F3F5] transition-colors hover:border-[#3E4552] hover:bg-[#1A1E24] disabled:opacity-50"
+        disabled={isBusy}
+        className="flex w-full items-center justify-center gap-2.5 rounded-md border border-[#2E333D] bg-[#14171C] py-2.5 text-[13px] font-medium text-[#F2F3F5] transition-colors hover:border-[#3E4552] hover:bg-[#1A1E24] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <GoogleIcon />
         <span>{googleLoading ? "Connecting to Google…" : "Continue with Google"}</span>
@@ -161,8 +193,10 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="planner@authority.gov"
+              maxLength={254}
+              disabled={isBusy}
               required
-              className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary"
+              className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary disabled:opacity-50"
             />
           </div>
         </div>
@@ -187,14 +221,16 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
+              disabled={isBusy}
               required
-              className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-10 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary"
+              className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-10 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary disabled:opacity-50"
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#626975] transition-colors hover:text-[#C4C9D0] focus:outline-none"
+              disabled={isBusy}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#626975] transition-colors hover:text-[#C4C9D0] focus:outline-none disabled:opacity-50"
             >
               {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
@@ -203,11 +239,20 @@ function LoginForm() {
 
         <button
           type="submit"
-          disabled={loading || googleLoading}
-          className="group flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:opacity-50"
+          disabled={isBusy}
+          className="group flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Authenticating…" : "Sign In with Credentials"}
-          <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin text-[#0A0B0D]" />
+              <span>Authenticating…</span>
+            </>
+          ) : (
+            <>
+              <span>Sign In with Credentials</span>
+              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+            </>
+          )}
         </button>
 
         <div className="relative my-3">
@@ -222,10 +267,20 @@ function LoginForm() {
         <button
           type="button"
           onClick={handleDemoAccess}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-[#23262C] bg-[#14171C] py-2 text-[12px] font-medium text-[#C4C9D0] transition-colors hover:border-[#353945] hover:text-white"
+          disabled={isBusy}
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-[#23262C] bg-[#14171C] py-2 text-[12px] font-medium text-[#C4C9D0] transition-colors hover:border-[#353945] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Sparkles size={13} className="text-[#7CD4AE]" />
-          Continue as Lead Planner (1-Click Demo)
+          {demoLoading ? (
+            <>
+              <Loader2 size={13} className="animate-spin text-[#7CD4AE]" />
+              <span>Entering demo mode…</span>
+            </>
+          ) : (
+            <>
+              <Sparkles size={13} className="text-[#7CD4AE]" />
+              <span>Continue as Lead Planner (1-Click Demo)</span>
+            </>
+          )}
         </button>
       </form>
 

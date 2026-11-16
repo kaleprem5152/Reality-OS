@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured } from "./client";
 import { getSafeRedirectUrl } from "../redirect";
+import { verifyDemoSessionToken, DEMO_COOKIE_NAME } from "../demo-session";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -10,7 +11,6 @@ export async function updateSession(request: NextRequest) {
 
   let user = null;
   const isConfigured = isSupabaseConfigured();
-  const isProduction = process.env.NODE_ENV === "production";
 
   if (isConfigured) {
     try {
@@ -67,18 +67,20 @@ export async function updateSession(request: NextRequest) {
 
   const isPublicApiRoute =
     pathname.startsWith("/api/health") ||
-    pathname.startsWith("/api/ai/status");
+    pathname.startsWith("/api/ai/status") ||
+    pathname.startsWith("/api/auth/demo");
 
   const isApiRoute = pathname.startsWith("/api/");
 
-  // Demo access is strictly limited to non-production environments (local development).
-  // Never trust demo cookies in production under any circumstances.
-  const allowDemo = !isProduction;
-  const demoCookie = request.cookies.get("realityos_demo_session")?.value;
-  const isDemo = allowDemo && (demoCookie === "1" || demoCookie === "true");
+  // Demo access validation:
+  // Requires cryptographically signed server session token.
+  // In production, unverified or forged cookies (like '1' or 'true') are strictly rejected.
+  const demoCookie = request.cookies.get(DEMO_COOKIE_NAME)?.value;
+  const verifiedDemo = await verifyDemoSessionToken(demoCookie);
+  const isDemo = verifiedDemo !== null;
 
-  // Redirect authenticated users away from login/signup to destination or /overview
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  // Redirect authenticated users (Supabase or Demo session) away from login/signup to destination or /overview
+  if ((user || isDemo) && (pathname === "/login" || pathname === "/signup")) {
     const nextUrl = request.nextUrl.clone();
     const rawRedirect = request.nextUrl.searchParams.get("redirect");
     nextUrl.pathname = getSafeRedirectUrl(rawRedirect, "/overview");
@@ -86,7 +88,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(nextUrl);
   }
 
-  // Allow public API routes (health check, AI status) to pass through unconditionally
+  // Allow public API routes (health check, AI status, demo auth) to pass through unconditionally
   if (isPublicApiRoute) {
     return supabaseResponse;
   }

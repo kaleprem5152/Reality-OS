@@ -203,6 +203,7 @@ describe("07 - Workspace Onboarding Security & Provisioning Test Suite", () => {
             updatedAt: new Date("2026-03-01T12:00:00Z"),
           },
         ],
+        [], // profile insert
         [], // member insert
       );
 
@@ -223,7 +224,7 @@ describe("07 - Workspace Onboarding Security & Provisioning Test Suite", () => {
       expect(json.alreadyExists).toBe(false);
 
       const executed = db.getExecutedQueries();
-      expect(executed.length).toBe(3);
+      expect(executed.length).toBe(4);
 
       // Verify workspace insert parameters
       expect(executed[1].operation).toBe("insert");
@@ -234,9 +235,17 @@ describe("07 - Workspace Onboarding Security & Provisioning Test Suite", () => {
         }),
       );
 
-      // Verify membership insert parameters explicitly set 'owner'
+      // Verify profile insert parameters (defense-in-depth onboarding)
       expect(executed[2].operation).toBe("insert");
       expect(executed[2].insertValues).toEqual(
+        expect.objectContaining({
+          id: "usr-creator-42",
+        }),
+      );
+
+      // Verify membership insert parameters explicitly set 'owner'
+      expect(executed[3].operation).toBe("insert");
+      expect(executed[3].insertValues).toEqual(
         expect.objectContaining({
           workspaceId: "ws-new-prov-1",
           userId: "usr-creator-42",

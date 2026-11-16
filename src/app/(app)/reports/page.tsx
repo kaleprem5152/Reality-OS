@@ -330,6 +330,293 @@ function ReportsInner() {
 
 function ReportBody({ report, currency }: { report: Report; currency: "INR" | "USD" }) {
   const c = report.content ?? ({} as ReportContent);
+  const d = c.detailedReview;
+
+  if (d) {
+    return (
+      <div className="mx-auto max-w-[800px] space-y-6">
+        <Section n="1" title="Executive Summary & Project Health">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-md border border-line bg-app-bg p-3 text-[12px]">
+              <span className="font-semibold text-muted">Health Assessment:</span>
+              <span className="font-bold text-primary">{d.executiveSummary.projectHealth}</span>
+              <span className="text-muted">·</span>
+              <span className="text-ink-2">{d.executiveSummary.healthExplanation}</span>
+            </div>
+            <p className="text-[13px] leading-6 text-ink-2">{d.executiveSummary.overallAssessment}</p>
+            <div className="grid gap-3 sm:grid-cols-2 pt-2">
+              <div className="rounded border border-success/20 bg-success/5 p-3">
+                <p className="text-[11.5px] font-semibold text-success mb-1.5">Key Strengths</p>
+                <ul className="space-y-1 text-[11.5px] text-ink-2">
+                  {d.executiveSummary.keyStrengths.map((s) => (
+                    <li key={s} className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded border border-critical/20 bg-critical/5 p-3">
+                <p className="text-[11.5px] font-semibold text-critical mb-1.5">Key Concerns</p>
+                <ul className="space-y-1 text-[11.5px] text-ink-2">
+                  {d.executiveSummary.keyConcerns.map((con) => (
+                    <li key={con} className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-critical" />
+                      <span>{con}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section n="2" title="Project Understanding & Scope Baseline">
+          <div className="space-y-3 text-[12.5px] text-ink-2">
+            <p>{d.projectUnderstanding.objectivesAndScope}</p>
+            <div>
+              <p className="font-semibold text-ink text-[12px] mb-1">Expected Strategic Outcomes:</p>
+              <ul className="space-y-1">
+                {d.projectUnderstanding.expectedOutcomes.map((eo) => (
+                  <li key={eo} className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{eo}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 rounded border border-line bg-app-bg p-2.5 text-[11.5px]">
+              <div><span className="text-muted">Progress Stage:</span> <strong className="text-ink">{d.projectUnderstanding.currentProgress}</strong></div>
+              <div><span className="text-muted">Budget Context:</span> <strong className="text-ink">{d.projectUnderstanding.budgetAndTimelineContext}</strong></div>
+            </div>
+            {d.projectUnderstanding.assumptions.length > 0 && (
+              <div>
+                <p className="text-[11px] font-semibold text-faint uppercase mb-1">Planning Assumptions</p>
+                <ul className="space-y-1 text-muted text-[11.5px]">
+                  {d.projectUnderstanding.assumptions.map((a) => (
+                    <li key={a} className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-faint" />
+                      <span>{a}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        <Section n="3" title="Progress & Performance Analysis">
+          <div className="space-y-3">
+            <div className="table-wrap rounded-md border border-line">
+              <table className="tbl text-[12px]">
+                <thead>
+                  <tr>
+                    <th>Milestone / Phase</th>
+                    <th>Window</th>
+                    <th>Status</th>
+                    <th>Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.progressPerformance.milestoneAnalysis.map((m) => (
+                    <tr key={m.phase}>
+                      <td className="font-semibold text-ink">{m.phase}</td>
+                      <td className="text-muted text-[11px]">{m.window}</td>
+                      <td><StatusTag status={m.status} /></td>
+                      <td className="text-muted text-[11.5px]">{m.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3 text-[11.5px] text-ink-2">
+              <div className="rounded border border-line bg-app-bg p-2.5">
+                <span className="text-muted text-[10px] uppercase font-semibold">Planned vs Actual</span>
+                <p className="mt-0.5">{d.progressPerformance.plannedVsActual}</p>
+              </div>
+              <div className="rounded border border-line bg-app-bg p-2.5">
+                <span className="text-muted text-[10px] uppercase font-semibold">Schedule Performance</span>
+                <p className="mt-0.5">{d.progressPerformance.schedulePerformance}</p>
+              </div>
+              <div className="rounded border border-line bg-app-bg p-2.5">
+                <span className="text-muted text-[10px] uppercase font-semibold">Budget Utilization</span>
+                <p className="mt-0.5">{d.progressPerformance.budgetUtilization}</p>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section n="4" title="Risk Assessment Matrix">
+          <div className="table-wrap rounded-md border border-line">
+            <table className="tbl text-[11.5px]">
+              <thead>
+                <tr>
+                  <th>Risk</th>
+                  <th>Severity</th>
+                  <th>Evidence</th>
+                  <th>Mitigation</th>
+                  <th>Owner</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.riskAssessment.map((r) => (
+                  <tr key={r.risk}>
+                    <td className="font-semibold text-ink">{r.risk}</td>
+                    <td><RiskTag level={r.severity} /></td>
+                    <td className="text-muted max-w-[200px]">{r.supportingEvidence}</td>
+                    <td className="text-ink-2 max-w-[220px]">{r.mitigation}</td>
+                    <td className="text-primary font-medium">{r.recommendedOwner}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+
+        <Section n="5" title="Budget & Resource Analysis">
+          <div className="space-y-3">
+            <div className="table-wrap rounded-md border border-line">
+              <table className="tbl text-[12px]">
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th className="text-right">Value</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.budgetAndResources.allocationAndUtilization.map((b) => (
+                    <tr key={b.component}>
+                      <td className="font-semibold text-ink">{b.component}</td>
+                      <td className="text-right font-medium text-ink">{formatCrore(b.valueCrore, currency)}</td>
+                      <td className="text-muted text-[11px]">{b.note || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="rounded border border-line bg-app-bg p-3 text-[12px] text-ink-2">
+              <p><strong className="text-ink">Overrun & Headroom Analysis:</strong> {d.budgetAndResources.potentialOverruns}</p>
+            </div>
+            <p className="text-[10.5px] text-faint italic">{d.budgetAndResources.figuresNote}</p>
+          </div>
+        </Section>
+
+        <Section n="6" title="Technical & Operational Assessment">
+          <div className="space-y-3 text-[12px] text-ink-2">
+            <p>{d.technicalAndOperational.technicalFeasibility}</p>
+            <div className="rounded border border-line bg-app-bg p-3">
+              <p className="font-semibold text-ink mb-1">Operational Readiness:</p>
+              <p>{d.technicalAndOperational.operationalReadiness}</p>
+            </div>
+            {d.technicalAndOperational.dependencies.length > 0 && (
+              <div className="table-wrap rounded-md border border-line">
+                <table className="tbl text-[11.5px]">
+                  <thead>
+                    <tr>
+                      <th>Dependency</th>
+                      <th>Criticality</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.technicalAndOperational.dependencies.map((dep) => (
+                      <tr key={dep.item}>
+                        <td className="font-semibold text-ink">{dep.item}</td>
+                        <td><StatusTag status={dep.criticality} /></td>
+                        <td className="text-muted">{dep.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        <Section n="7" title="Prioritized Recommendations">
+          <div className="space-y-3">
+            {d.recommendations.map((r, i) => (
+              <div key={r.title} className="rounded border border-line bg-app-bg p-3 text-[12px] space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-ink">{i + 1}. {r.title}</span>
+                  <span className="rounded bg-surface px-1.5 py-0.5 text-[9.5px] font-semibold uppercase text-primary border border-line">
+                    {r.priority} Priority · {r.urgency}
+                  </span>
+                </div>
+                <p className="text-muted"><strong className="text-ink-2">Why:</strong> {r.whyItMatters}</p>
+                <p className="text-muted"><strong className="text-ink-2">Benefit:</strong> {r.expectedBenefit}</p>
+                <p className="text-muted"><strong className="text-ink-2">Approach:</strong> {r.implementationApproach}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section n="8" title="Implementation Action Plan">
+          <div className="grid gap-3 sm:grid-cols-3 text-[11.5px]">
+            <div className="rounded border border-line bg-app-bg p-3 space-y-2">
+              <span className="font-semibold text-critical uppercase text-[10.5px]">Immediate (30 Days)</span>
+              {d.actionPlan.immediateActions.map((a) => (
+                <div key={a.action} className="border-t border-line/60 pt-1.5">
+                  <p className="font-medium text-ink">{a.action}</p>
+                  <p className="text-[10px] text-muted">Owner: {a.owner}</p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded border border-line bg-app-bg p-3 space-y-2">
+              <span className="font-semibold text-warning uppercase text-[10.5px]">Short-Term (90 Days)</span>
+              {d.actionPlan.shortTermActions.map((a) => (
+                <div key={a.action} className="border-t border-line/60 pt-1.5">
+                  <p className="font-medium text-ink">{a.action}</p>
+                  <p className="text-[10px] text-muted">Owner: {a.owner}</p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded border border-line bg-app-bg p-3 space-y-2">
+              <span className="font-semibold text-primary uppercase text-[10.5px]">Medium-Term (180 Days)</span>
+              {d.actionPlan.mediumTermActions.map((a) => (
+                <div key={a.action} className="border-t border-line/60 pt-1.5">
+                  <p className="font-medium text-ink">{a.action}</p>
+                  <p className="text-[10px] text-muted">Owner: {a.owner}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Section>
+
+        <Section n="9" title="Conclusion & Strategic Outlook">
+          <div className="space-y-3 text-[12.5px] text-ink-2">
+            <p>{d.conclusion.outlook}</p>
+            <div className="grid gap-3 sm:grid-cols-2 pt-1 text-[12px]">
+              <div className="rounded border border-critical/20 bg-critical/5 p-3">
+                <p className="font-semibold text-critical mb-1 text-[11px] uppercase">Critical Issues</p>
+                <ul className="space-y-1">
+                  {d.conclusion.criticalIssues.map((ci) => (
+                    <li key={ci} className="flex items-start gap-1.5">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-critical" />
+                      <span>{ci}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded border border-success/20 bg-success/5 p-3">
+                <p className="font-semibold text-success mb-1 text-[11px] uppercase">Next Strategic Steps</p>
+                <ul className="space-y-1">
+                  {d.conclusion.nextSteps.map((ns) => (
+                    <li key={ns} className="flex items-start gap-1.5">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                      <span>{ns}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Section>
+      </div>
+    );
+  }
+
   const assumptions = c.assumptions || [];
   const costBreakdown = c.costBreakdown || [];
   const milestones = c.milestones || [];

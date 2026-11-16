@@ -169,6 +169,17 @@ export function TopNav() {
         {ai === null ? "AI: checking…" : ai.configured ? "AI: Gemini" : "AI: Demo mode"}
       </div>
 
+      {/* Demo Mode Indicator */}
+      {user?.isDemo && (
+        <div
+          className="flex items-center gap-1.5 rounded-md border border-[#7CD4AE]/30 bg-[#7CD4AE]/10 px-2.5 py-[5px] text-[11px] font-semibold text-[#7CD4AE]"
+          title="Operating in isolated Demo Sandbox mode (Lead Infrastructure Planner)"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-[#7CD4AE] animate-pulse" aria-hidden />
+          <span>Demo Mode</span>
+        </div>
+      )}
+
       {/* Notifications */}
       <div ref={notifRef} className="relative">
         <button

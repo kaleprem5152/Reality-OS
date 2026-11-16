@@ -1,4 +1,4 @@
-import type { AnalysisResult, Project, ScenarioInputs } from "@/lib/types";
+import type { AnalysisResult, DetailedAiReview, Project, ScenarioInputs } from "@/lib/types";
 import { runScenario, BASELINE_SCENARIO } from "@/lib/simulation";
 import { formatCrore } from "@/lib/format";
 
@@ -13,15 +13,17 @@ import { formatCrore } from "@/lib/format";
  */
 
 export function buildScenarioInputs(project: Project): ScenarioInputs {
+  const priorities = project.sustainabilityPriorities?.length
+    ? project.sustainabilityPriorities
+    : BASELINE_SCENARIO.sustainabilityPriorities;
+
   if (project.stations || project.corridorKm) {
     return {
       ...BASELINE_SCENARIO,
       budgetCrore: project.budgetCrore,
       stations: project.stations ?? BASELINE_SCENARIO.stations,
       corridorKm: project.corridorKm ?? BASELINE_SCENARIO.corridorKm,
-      sustainabilityPriorities: project.sustainabilityPriorities.length
-        ? project.sustainabilityPriorities
-        : BASELINE_SCENARIO.sustainabilityPriorities,
+      sustainabilityPriorities: priorities,
     };
   }
   const km = project.corridorKm ?? Math.max(12, Math.round(project.budgetCrore / 190));
@@ -30,7 +32,7 @@ export function buildScenarioInputs(project: Project): ScenarioInputs {
     budgetCrore: project.budgetCrore,
     stations: Math.max(6, Math.round(km * 0.55)),
     corridorKm: km,
-    sustainabilityPriorities: project.sustainabilityPriorities,
+    sustainabilityPriorities: priorities,
   };
 }
 
@@ -43,7 +45,7 @@ export function buildDemoAnalysis(
   const out = runScenario(inputs);
   const { capex, schedule, demand, resources, risk, sustainability } = out;
 
-  const executiveSummary = [
+  const executiveSummaryText = [
     `${project.name} is assessed as a ${inputs.corridorKm} km, ${inputs.stations}-station programme with ` +
       `a ${formatCrore(project.budgetCrore)} capital envelope and a ${inputs.constructionYears}-year delivery target.`,
     `Modeled direct cost is ${formatCrore(capex.totalModeled)} (${capex.budgetUtilizationPct.toFixed(1)}% of envelope), ` +
@@ -52,12 +54,273 @@ export function buildDemoAnalysis(
       `composite risk scores ${risk.score}/100 (${risk.level}).`,
   ].join(" ");
 
+  const healthStatus = capex.withinBudget
+    ? risk.level === "Critical"
+      ? "Poor"
+      : risk.level === "High"
+        ? "Fair"
+        : "Good"
+    : capex.budgetUtilizationPct > 125
+      ? "Critical"
+      : "Poor";
+
+  const detailedReview: DetailedAiReview = {
+    executiveSummary: {
+      overallAssessment: `${project.name} is a high-priority ${project.infraType} initiative in ${project.region}. Operating under an authorized capital envelope of ₹${project.budgetCrore.toLocaleString("en-IN")} crore, the corridor provides comprehensive urban transit coverage across ${inputs.stations} stations with ${capex.withinBudget ? "manageable capital headroom" : "budgetary pressure requiring descoping"}.`,
+      projectHealth: healthStatus,
+      healthExplanation: `Modeled expenditure of ₹${capex.totalModeled.toLocaleString("en-IN")} crore corresponds to ${capex.budgetUtilizationPct.toFixed(1)}% envelope utilization (${capex.withinBudget ? `₹${(project.budgetCrore - capex.totalModeled).toLocaleString("en-IN")} crore headroom` : `₹${(capex.totalModeled - project.budgetCrore).toLocaleString("en-IN")} crore deficit`}) with composite risk index at ${risk.score}/100 (${risk.level}).`,
+      keyStrengths: [
+        `High demand coverage of ${demand.demandCoveragePct.toFixed(0)}% with ${demand.dailyCapacityOffered.toLocaleString("en-IN")} offered daily trips across ${inputs.stations} station nodes.`,
+        `Optimal urban transit stop spacing of ${(inputs.corridorKm / Math.max(1, inputs.stations - 1)).toFixed(1)} km along the ${inputs.corridorKm} km alignment.`,
+        `Decarbonization benefit of ${sustainability.co2AvoidedTonsPerYear.toLocaleString("en-IN")} metric tons of CO₂ avoided annually via modal shift.`,
+        `Integrated 12% contingency buffer (₹${capex.contingency.toLocaleString("en-IN")} crore) to absorb construction escalation.`,
+      ],
+      keyConcerns: [
+        capex.withinBudget
+          ? `Capital headroom is constrained to ₹${(project.budgetCrore - capex.totalModeled).toLocaleString("en-IN")} crore; design creep must be strictly contained.`
+          : `Modeled capital costs exceed authorized budget by ₹${(capex.totalModeled - project.budgetCrore).toLocaleString("en-IN")} crore; formal descoping or phase-splitting is required.`,
+        `Peak crowding loading index reaches ${demand.peakCrowdingIndex.toFixed(2)}x capacity; headway adjustment and platform sizing must prevent platform bottlenecks.`,
+        "Buried utilities (1,200 mm water trunk main and 33 kV traction lines) pose early enabling-works diversion risks.",
+      ],
+    },
+    projectUnderstanding: {
+      objectivesAndScope: `Comprehensive delivery of ${inputs.corridorKm} km of ${project.infraType} infrastructure across ${inputs.stations} stations in ${project.region}. The scope incorporates viaduct and at-grade guideways, passenger terminal boxes, automated train control signaling, rolling stock maintenance depot, and power distribution.`,
+      expectedOutcomes: [
+        `Transport ${demand.dailyCapacityOffered.toLocaleString("en-IN")} passengers daily with reliable high-frequency service.`,
+        `Direct economic and commercial connectivity across ${inputs.stations} urban centers and major transit junctions.`,
+        `Net greenhouse gas reduction of ${sustainability.co2AvoidedTonsPerYear.toLocaleString("en-IN")} t/year with ${sustainability.renewableSharePct}% renewable energy adoption.`,
+      ],
+      currentProgress: `Currently recorded in "${project.status}" status. Baseline parameters and corridor geography defined in workspace register.`,
+      budgetAndTimelineContext: `Authorized capital budget is ₹${project.budgetCrore.toLocaleString("en-IN")} crore. Target completion window is scheduled for ${project.targetCompletion || "2030"} (${inputs.constructionYears} years modeled build duration).`,
+      assumptions: [
+        `Civil unit rates modeled at ₹150 crore/km for elevated structures; systems at ₹41 crore/km.`,
+        `Station boxes and land acquisition modeled at ₹62 crore/station across ${inputs.stations} sites.`,
+        "12% contingency margin applied uniformly across all direct works packages.",
+        `Requirements brief: "${requirements.slice(0, 160)}${requirements.length > 160 ? "…" : ""}"`,
+      ],
+    },
+    progressPerformance: {
+      milestoneAnalysis: [
+        {
+          phase: "Enabling Works & Utility Diversions",
+          window: "Months 0–14",
+          status: "In Progress",
+          detail: "GPR subsurface surveys, water trunk main relocation, tree mitigation under 3:1 environmental policy.",
+        },
+        {
+          phase: "Civil Works Package 1 (Viaduct & Guideway)",
+          window: "Months 10–38",
+          status: "Pending",
+          detail: `Pier erection and segmental box-girder launching across ${inputs.corridorKm} km alignment.`,
+        },
+        {
+          phase: "Civil Works Package 2 (Station Boxes)",
+          window: "Months 16–46",
+          status: "Pending",
+          detail: `Cut-and-cover underground boxes and elevated concourses across ${inputs.stations} station nodes.`,
+        },
+        {
+          phase: "Systems Integration, Fleet & Commissioning",
+          window: "Months 40–72",
+          status: "Pending",
+          detail: `Automated signaling, 33 kV traction electrification, depot commissioning, and trial runs for ${resources.fleetTrains} trainsets.`,
+        },
+      ],
+      plannedVsActual: `Project register reflects "${project.status}" milestone status. Preliminary alignment and requirements have been confirmed; statutory procurement release remains the critical next gate.`,
+      schedulePerformance: `Modeled build duration is ${schedule.estimatedYears} years versus the baseline ${inputs.constructionYears}-year target (${schedule.schedulePressurePct > 0 ? `${schedule.schedulePressurePct.toFixed(1)}% schedule pressure` : "within scheduled margin"}).`,
+      budgetUtilization: `Total modeled direct expenditure is ₹${capex.totalModeled.toLocaleString("en-IN")} crore against the ₹${project.budgetCrore.toLocaleString("en-IN")} crore envelope (${capex.budgetUtilizationPct.toFixed(1)}% utilization).`,
+      bottlenecksAndDelays: [
+        "Depot site land parcel acquisition gates initial rolling stock delivery.",
+        "Deep utility diversion approvals across municipal boundaries.",
+        "Heritage precinct vibration mitigation requiring specialist low-impact piling equipment.",
+      ],
+    },
+    riskAssessment: [
+      {
+        risk: "Land acquisition delays across station and depot plots",
+        likelihood: "High",
+        impact: "High",
+        severity: "High",
+        supportingEvidence: "Historical metro infrastructure projects in the region average 8–14 months statutory assembly delays.",
+        mitigation: "Initiate early land-purchase notifications with escrow-backed compensation packages prior to civil procurement.",
+        recommendedOwner: "Chief Land Acquisition Officer",
+      },
+      {
+        risk: "Subsurface utility conflicts extending enabling civil works",
+        likelihood: "Moderate",
+        impact: "High",
+        severity: "High",
+        supportingEvidence: "1,200 mm water trunk main crosses alignment at three major station excavation perimeters.",
+        mitigation: "Commission 3D Ground Penetrating Radar (GPR) and award utility diversion contracts 6 months before main civil mobilization.",
+        recommendedOwner: "Director of Infrastructure & Utilities",
+      },
+      {
+        risk: "Capital cost escalation beyond approved envelope",
+        likelihood: capex.withinBudget ? "Moderate" : "High",
+        impact: "Critical",
+        severity: capex.withinBudget ? "Moderate" : "Critical",
+        supportingEvidence: `Modeled expenditure utilizes ${capex.budgetUtilizationPct.toFixed(1)}% of the ₹${project.budgetCrore} cr authorization.`,
+        mitigation: "Execute fixed-price turnkey contracts with indexed material escalation clauses and dispute boards.",
+        recommendedOwner: "Chief Financial Officer",
+      },
+      {
+        risk: "Peak passenger loading congestion at key transfer interchanges",
+        likelihood: "Moderate",
+        impact: "Moderate",
+        severity: "Moderate",
+        supportingEvidence: `Peak loading index models at ${demand.peakCrowdingIndex.toFixed(2)}x design capacity during morning rush hours.`,
+        mitigation: "Design stations for future 6-car expansion and implement peak-differential ticketing tariffs.",
+        recommendedOwner: "Head of Transit Planning",
+      },
+    ],
+    budgetAndResources: {
+      allocationAndUtilization: [
+        { component: "Civil Works & Guideway", valueCrore: capex.civil, note: `₹150 cr/km across ${inputs.corridorKm} km` },
+        { component: "Systems, Power & Signaling", valueCrore: capex.systems, note: `₹41 cr/km including automated train protection` },
+        { component: "Stations & Land Assembly", valueCrore: capex.land, note: `₹62 cr per station across ${inputs.stations} sites` },
+        { component: "Rolling Stock Fleet", valueCrore: Math.round(capex.rollingStock), note: `${resources.fleetTrains} modern trainsets` },
+        { component: "Contingency (12%)", valueCrore: capex.contingency, note: "Allocated contingency buffer" },
+      ],
+      potentialOverruns: capex.withinBudget
+        ? `Modeled capex leaves ₹${(project.budgetCrore - capex.totalModeled).toLocaleString("en-IN")} crore in reserve headroom below the ₹${project.budgetCrore} crore envelope.`
+        : `Modeled capex exceeds the envelope by ₹${(capex.totalModeled - project.budgetCrore).toLocaleString("en-IN")} crore; design optimization or scope adjustment is mandatory before procurement release.`,
+      resourceConstraints: [
+        `Fleet requirement: ${resources.fleetTrains} trainsets needed to maintain ${inputs.trainCapacityPerHour.toLocaleString("en-IN")} passengers/hr throughput.`,
+        `Traction electrical draw: ${resources.annualEnergyGwh.toFixed(1)} GWh/year requires dedicated 33 kV substation interconnects.`,
+        `Operating personnel: estimated ${resources.staffEstimate.toLocaleString("en-IN")} FTE operations and maintenance staff.`,
+      ],
+      optimizationOpportunities: [
+        "Standardize precast girder designs across 85% of elevated viaduct spans to accelerate civil turnaround.",
+        "Bundle traction power and signaling into a single systems package to capture supplier volume discounts.",
+        "Implement regenerative braking on rolling stock to lower traction consumption by 18-22%.",
+      ],
+      figuresNote: `Based on calibrated engineering unit rates against verified project envelope (₹${project.budgetCrore} crore, ${inputs.corridorKm} km, ${inputs.stations} stations). No speculative financial figures added.`,
+    },
+    technicalAndOperational: {
+      technicalFeasibility: `Alignment geometry supports design operating speeds up to 80 km/h with average station spacing of ${(inputs.corridorKm / Math.max(1, inputs.stations - 1)).toFixed(1)} km. Minimum curvature radius of 250m is maintained throughout all non-terminal sectors.`,
+      implementationConcerns: [
+        "1-in-50 year flood plain intersection requires elevated viaduct deck heights with river scour protection.",
+        "Urban arterial corridor traffic management during viaduct beam launching.",
+        "Sensitive vibration limits in proximity to heritage masonry structures along Sector B.",
+      ],
+      dependencies: [
+        { item: "Utility diversion clearance", criticality: "High", note: "Prerequisite for station box shoring and piling works." },
+        { item: "Depot land handover", criticality: "High", note: "Prerequisite for track laying and test track commissioning." },
+        { item: "33 kV traction power grid tie-in", criticality: "Moderate", note: "Two grid substations required for electrification." },
+        { item: "Regional feeder-bus coordination MOU", criticality: "Moderate", note: "Required to secure opening-day first/last mile access." },
+      ],
+      operationalReadiness: `System is designed for an 18-hour operating window with ${MODEL_TRIPS_TEXT(inputs)}. Staff training and trial runs require a 4-month operational readiness activation phase before revenue commencement.`,
+      qualityConsiderations: [
+        "Compliance with National Urban Rail Transit safety and fire protection standards.",
+        "Full barrier-free accessibility compliant with universal accessibility mandates.",
+        "Automated Fare Collection (AFC) with contactless mobile and National Transit Card interoperability.",
+      ],
+    },
+    recommendations: [
+      {
+        title: capex.withinBudget ? "Protect Capital Contingency Headroom" : "Phase Funding or Descope Non-Core Package",
+        priority: "High",
+        urgency: "Immediate",
+        whyItMatters: capex.withinBudget
+          ? `Current headroom of ₹${(project.budgetCrore - capex.totalModeled).toLocaleString("en-IN")} crore can easily erode during detailed engineering if scope isn't controlled.`
+          : `Current scope exceeds budget by ₹${(capex.totalModeled - project.budgetCrore).toLocaleString("en-IN")} crore. Approving tender without alignment creates severe downstream cost overruns.`,
+        expectedBenefit: "Preserves financial viability and avoids mid-construction funding stalls.",
+        implementationApproach: "Establish a formal Change Review Board requiring steering sign-off on any modification exceeding 0.5% of capex.",
+      },
+      {
+        title: "Frontload Utility Relocations into Early Enabling Works",
+        priority: "High",
+        urgency: "Immediate",
+        whyItMatters: "Buried utility conflicts under station boxes are the single most common cause of commercial claims and work stoppages.",
+        expectedBenefit: "De-risks critical-path excavation by 4 to 6 calendar months.",
+        implementationApproach: "Tender utility relocation packages independently 6 months before primary civil contractor mobilization.",
+      },
+      {
+        title: "Execute Long-Term Clean Energy Power Purchase Agreement (PPA)",
+        priority: "Medium",
+        urgency: "Near-term",
+        whyItMatters: `Traction power demand of ${resources.annualEnergyGwh.toFixed(1)} GWh/year accounts for significant lifecycle operating expense.`,
+        expectedBenefit: "Locks in predictable electricity tariffs while elevating renewable share toward 60%+.",
+        implementationApproach: "Issue a competitive solar-wind hybrid PPA for 25-year operational power supply.",
+      },
+    ],
+    actionPlan: {
+      immediateActions: [
+        {
+          action: "Approve baseline corridor alignment and station boundary demarcations.",
+          owner: "Steering Committee / Lead Planner",
+          expectedOutcome: "Freezes corridor geography and enables formal land acquisition notices.",
+        },
+        {
+          action: "Commission utility verification GPR mapping along entire route.",
+          owner: "Chief Engineer (Enabling Works)",
+          expectedOutcome: "Delivers comprehensive underground obstruction register.",
+        },
+        {
+          action: "Establish Project Cost Control & Contingency Governance Board.",
+          owner: "Finance Director",
+          expectedOutcome: "Enforces budget envelope caps across procurement packages.",
+        },
+      ],
+      shortTermActions: [
+        {
+          action: "Release pre-qualification tenders for Civil Package 1 & 2.",
+          owner: "Procurement Committee",
+          expectedOutcome: "Shortlists qualified national civil infrastructure contractors.",
+        },
+        {
+          action: "Execute joint utility relocation agreements with water and electricity authorities.",
+          owner: "Liaison & Statutory Approvals Manager",
+          expectedOutcome: "Statutory rights-of-way secured for pipeline and cable diversion works.",
+        },
+        {
+          action: "Finalize land acquisition notices for the depot perimeter.",
+          owner: "Land Acquisition Office",
+          expectedOutcome: "Secures ownership rights for rolling stock testing and maintenance hub.",
+        },
+      ],
+      mediumTermActions: [
+        {
+          action: "Award main civil viaduct construction and station contracts.",
+          owner: "Executive Directorate",
+          expectedOutcome: "Contractor mobilization and ground-breaking for guideway foundation.",
+        },
+        {
+          action: "Initiate rolling stock procurement tender for trainsets.",
+          owner: "Rolling Stock & Systems Lead",
+          expectedOutcome: "Locks in delivery manufacturing slots for fleet delivery.",
+        },
+        {
+          action: "Execute inter-modal transit feeder integration agreements.",
+          owner: "Urban Mobility Directorate",
+          expectedOutcome: "Synchronized feeder bus lines and multimodal interchange hubs.",
+        },
+      ],
+    },
+    conclusion: {
+      outlook: `${project.name} demonstrates solid foundational feasibility and compelling economic-environmental utility for ${project.region}. With disciplined capital governance and aggressive frontloading of utility diversions, the project is primed for successful execution within the targeted timeframe.`,
+      criticalIssues: [
+        capex.withinBudget
+          ? "Preservation of contingency headroom against civil contractor claims."
+          : `Re-alignment of capital cost with the ₹${project.budgetCrore} crore approved ceiling.`,
+        "Depot site land parcel acquisition timeline.",
+        "Timely diversion of critical water trunk mains under historic-core stations.",
+      ],
+      nextSteps: [
+        "Present detailed planning synthesis to the Infrastructure Steering Committee.",
+        "Issue formal gazette notifications for corridor right-of-way protection.",
+        "Commence enabling works procurement for utility diversions.",
+      ],
+    },
+  };
+
   return {
     mode: "demo",
     projectId: project.id,
     projectName: project.name,
     generatedAt: new Date().toISOString(),
-    executiveSummary,
+    executiveSummary: executiveSummaryText,
+    detailedReview,
     agents: [
       {
         agent: "Transportation Planning",

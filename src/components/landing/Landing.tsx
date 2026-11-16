@@ -18,7 +18,7 @@ import {
   Settings as SettingsIcon,
   TrainFront,
 } from "lucide-react";
-import { Globe3D } from "@/components/landing/Globe3D";
+import { InfrastructureTwin3D } from "@/components/landing/InfrastructureTwin3D";
 import GlowCursor from "./GlowCursor";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { SEED_PROJECTS } from "@/lib/data/seed";
@@ -234,10 +234,10 @@ export function Landing() {
       {/* ================================ HERO ================================ */}
       <section className="relative flex min-h-[100svh] items-center overflow-hidden">
         <div className="lp-grid-overlay pointer-events-none absolute inset-0" aria-hidden />
-        <Globe3D className="pointer-events-none absolute inset-0 h-full w-full opacity-90" />
+        <InfrastructureTwin3D className="pointer-events-none absolute inset-0 h-full w-full opacity-95" />
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(ellipse 75% 60% at 50% 42%, transparent 30%, #0A0B0D 92%)" }}
+          style={{ background: "radial-gradient(ellipse 90% 75% at 65% 50%, transparent 45%, rgba(10,11,13,0.75) 85%, #0A0B0D 100%)" }}
           aria-hidden
         />
 

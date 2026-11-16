@@ -2,7 +2,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { workspaces, workspaceMembers, workspaceInvitations, type WorkspaceRole } from "@/db/schema";
+import { profiles, workspaces, workspaceMembers, workspaceInvitations, type WorkspaceRole } from "@/db/schema";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ServerAuthResult } from "@/lib/auth-server";
 import type { AuthProfile } from "@/lib/authStore";
@@ -345,7 +345,20 @@ export async function createWorkspaceForUser(
     })
     .returning();
 
-  // 4. Ensure owner membership exists (Postgres trigger handles this, and onConflictDoNothing ensures idempotence)
+  // 4. Ensure user profile exists in public.profiles (defense-in-depth in case trigger was omitted)
+  const meta = user.user_metadata || {};
+  await db
+    .insert(profiles)
+    .values({
+      id: user.id,
+      email: user.email || "",
+      fullName: meta.full_name || meta.fullName || user.email?.split("@")[0] || "Infrastructure Planner",
+      organization: meta.organization || "Metropolitan Authority",
+      role: meta.role || "Lead Infrastructure Planner",
+    })
+    .onConflictDoNothing();
+
+  // 5. Ensure owner membership exists (Postgres trigger handles this, and onConflictDoNothing ensures idempotence)
   await db
     .insert(workspaceMembers)
     .values({

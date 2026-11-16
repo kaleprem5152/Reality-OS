@@ -3,8 +3,16 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldAlert, Sparkles, User } from "lucide-react";
+import { ArrowRight, Building, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert, Sparkles, User } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import {
+  isValidEmail,
+  validateFullName,
+  validatePassword,
+  MAX_FULL_NAME_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  MAX_ORGANIZATION_LENGTH,
+} from "@/lib/validation";
 
 function GoogleIcon() {
   return (
@@ -44,7 +52,10 @@ function SignUpForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const isBusy = loading || googleLoading;
+
   const handleGoogleSignUp = async () => {
+    if (isBusy) return;
     setError(null);
     setGoogleLoading(true);
     const res = await signInWithGoogle("/onboarding");
@@ -56,30 +67,48 @@ function SignUpForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBusy) return;
     setError(null);
     setSuccess(null);
 
-    if (!fullName || !email || !password) {
-      setError("Please fill out all required fields.");
+    // 1. Full Name validation (1 - 50 characters, non-whitespace)
+    const nameValidation = validateFullName(fullName);
+    if (!nameValidation.valid) {
+      setError(nameValidation.error || "Full Name is required and cannot be empty.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+
+    // 2. Email format validation (rejects invalid patterns like harsh099@2026)
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError("Work Email is required.");
+      return;
+    }
+    if (!isValidEmail(cleanEmail)) {
+      setError("Please enter a valid work email address with a domain extension (e.g., name@organization.gov).");
+      return;
+    }
+
+    // 3. Password length validation (6 - 50 characters, preserves characters)
+    const passValidation = validatePassword(password);
+    if (!passValidation.valid) {
+      setError(passValidation.error || "Password must be between 6 and 50 characters.");
       return;
     }
 
     setLoading(true);
-    const res = await signUpWithEmail(email, password, {
-      fullName,
-      organization: organization || "Metropolitan Authority",
+    const res = await signUpWithEmail(cleanEmail, password, {
+      fullName: fullName.trim(),
+      organization: organization.trim() || "Metropolitan Authority",
       role,
     });
     setLoading(false);
 
     if (res.error) {
+      // Preserve form values so user does not have to retype them
       setError(res.error);
     } else if (res.needVerification) {
-      setSuccess("Account created! Please check your email for a verification link.");
+      setSuccess(`Account registered for ${cleanEmail}! Please check your email for the verification link to activate your workspace.`);
     } else {
       router.push("/onboarding");
     }
@@ -123,8 +152,8 @@ function SignUpForm() {
           <button
             type="button"
             onClick={handleGoogleSignUp}
-            disabled={googleLoading || loading}
-            className="flex w-full items-center justify-center gap-2.5 rounded-md border border-[#2E333D] bg-[#14171C] py-2.5 text-[13px] font-medium text-[#F2F3F5] transition-colors hover:border-[#3E4552] hover:bg-[#1A1E24] disabled:opacity-50"
+            disabled={isBusy}
+            className="flex w-full items-center justify-center gap-2.5 rounded-md border border-[#2E333D] bg-[#14171C] py-2.5 text-[13px] font-medium text-[#F2F3F5] transition-colors hover:border-[#3E4552] hover:bg-[#1A1E24] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <GoogleIcon />
             <span>{googleLoading ? "Connecting to Google…" : "Sign up with Google"}</span>
@@ -141,9 +170,12 @@ function SignUpForm() {
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
-              <label className="mb-1 block text-[11.5px] font-medium text-[#C4C9D0]" htmlFor="fullName">
-                Full Name *
-              </label>
+              <div className="mb-1 flex items-center justify-between text-[11.5px]">
+                <label className="font-medium text-[#C4C9D0]" htmlFor="fullName">
+                  Full Name *
+                </label>
+                <span className="text-[10px] text-[#626975]">{fullName.length}/{MAX_FULL_NAME_LENGTH}</span>
+              </div>
               <div className="relative">
                 <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#626975]" />
                 <input
@@ -152,16 +184,21 @@ function SignUpForm() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Elena Rostova"
+                  maxLength={MAX_FULL_NAME_LENGTH}
+                  disabled={isBusy}
                   required
-                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary"
+                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary disabled:opacity-50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-1 block text-[11.5px] font-medium text-[#C4C9D0]" htmlFor="org">
-                Organization / Authority
-              </label>
+              <div className="mb-1 flex items-center justify-between text-[11.5px]">
+                <label className="font-medium text-[#C4C9D0]" htmlFor="org">
+                  Organization / Authority
+                </label>
+                <span className="text-[10px] text-[#626975]">{organization.length}/{MAX_ORGANIZATION_LENGTH}</span>
+              </div>
               <div className="relative">
                 <Building size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#626975]" />
                 <input
@@ -170,7 +207,9 @@ function SignUpForm() {
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder="Metro Transit & Infrastructure Authority"
-                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary"
+                  maxLength={MAX_ORGANIZATION_LENGTH}
+                  disabled={isBusy}
+                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary disabled:opacity-50"
                 />
               </div>
             </div>
@@ -183,7 +222,8 @@ function SignUpForm() {
                 id="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] px-3 py-2 text-[13px] text-[#F2F3F5] outline-none transition-colors focus:border-primary"
+                disabled={isBusy}
+                className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] px-3 py-2 text-[13px] text-[#F2F3F5] outline-none transition-colors focus:border-primary disabled:opacity-50"
               >
                 <option value="Lead Infrastructure Planner">Lead Infrastructure Planner</option>
                 <option value="Transportation Engineer">Transportation Engineer</option>
@@ -205,16 +245,21 @@ function SignUpForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="e.rostova@transit-authority.gov"
+                  maxLength={254}
+                  disabled={isBusy}
                   required
-                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary"
+                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-3 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary disabled:opacity-50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-1 block text-[11.5px] font-medium text-[#C4C9D0]" htmlFor="password">
-                Password * (min 6 characters)
-              </label>
+              <div className="mb-1 flex items-center justify-between text-[11.5px]">
+                <label className="font-medium text-[#C4C9D0]" htmlFor="password">
+                  Password * (6–50 characters)
+                </label>
+                <span className="text-[10px] text-[#626975]">{password.length}/{MAX_PASSWORD_LENGTH}</span>
+              </div>
               <div className="relative">
                 <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#626975]" />
                 <input
@@ -223,14 +268,17 @@ function SignUpForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
+                  maxLength={MAX_PASSWORD_LENGTH}
+                  disabled={isBusy}
                   required
-                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-10 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary"
+                  className="w-full rounded-md border border-[#23262C] bg-[#0A0B0D] py-2 pl-9 pr-10 text-[13px] text-[#F2F3F5] placeholder-[#626975] outline-none transition-colors focus:border-primary disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#626975] transition-colors hover:text-[#C4C9D0] focus:outline-none"
+                  disabled={isBusy}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#626975] transition-colors hover:text-[#C4C9D0] focus:outline-none disabled:opacity-50"
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -239,11 +287,20 @@ function SignUpForm() {
 
             <button
               type="submit"
-              disabled={loading || googleLoading}
-              className="group mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:opacity-50"
+              disabled={isBusy}
+              className="group mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-[#F2F3F5] py-2.5 text-[13px] font-semibold text-[#0A0B0D] transition-colors hover:bg-[#D8DBE0] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Creating account…" : "Register Workspace"}
-              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+              {loading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin text-[#0A0B0D]" />
+                  <span>Creating account…</span>
+                </>
+              ) : (
+                <>
+                  <span>Register Workspace</span>
+                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
             </button>
           </form>
 

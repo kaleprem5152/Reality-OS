@@ -19,6 +19,11 @@ import {
   type AuthProfile,
 } from "@/lib/authStore";
 import { getSafeRedirectUrl } from "@/lib/redirect";
+import {
+  isValidEmail,
+  validateFullName,
+  validatePassword,
+} from "@/lib/validation";
 
 interface AuthContextType {
   user: AuthProfile | null;
@@ -32,7 +37,7 @@ interface AuthContextType {
     password: string,
     meta: { fullName: string; organization?: string; role?: string }
   ) => Promise<{ error?: string; needVerification?: boolean }>;
-  signInAsDemo: (customProfile?: Partial<AuthProfile>) => void;
+  signInAsDemo: (customProfile?: Partial<AuthProfile>) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ error?: string }>;
@@ -49,7 +54,7 @@ export function useAuth(): AuthContextType {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthProfile | null>(null);
+  const [user, setUser] = useState<AuthProfile | null>(() => getStoredDemoUser());
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const configured = isSupabaseConfigured();
@@ -58,32 +63,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     const supabase = getSupabase();
 
+    const verifyServerDemo = async (): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/auth/demo", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user && mounted) {
+            setUser(data.user);
+            setStoredDemoUser(data.user);
+            setLoading(false);
+            return true;
+          }
+        }
+      } catch {
+        // Network or offline
+      }
+      return false;
+    };
+
     if (!supabase) {
-      // Supabase is not configured — restore demo user asynchronously
-      queueMicrotask(() => {
+      // Supabase is not configured — verify server demo
+      verifyServerDemo().then((verified) => {
         if (!mounted) return;
-        const storedDemo = getStoredDemoUser();
-        setUser(storedDemo || null);
+        if (!verified) {
+          setStoredDemoUser(null);
+          setUser(null);
+        }
         setLoading(false);
       });
       return;
     }
 
     // Supabase is configured
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       if (session?.user) {
         setSession(session);
         setUser(formatSupabaseUser(session.user));
+        setLoading(false);
       } else {
-        const storedDemo = getStoredDemoUser();
-        if (storedDemo) {
-          setUser(storedDemo);
-        } else {
+        // Check for verified server demo session
+        const verified = await verifyServerDemo();
+        if (!mounted) return;
+        if (!verified) {
+          setStoredDemoUser(null);
           setUser(null);
         }
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     const {
@@ -94,12 +125,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(formatSupabaseUser(session.user));
         setStoredDemoUser(null);
+        setLoading(false);
       } else {
         setSession(null);
-        const storedDemo = getStoredDemoUser();
-        setUser(storedDemo || null);
+        verifyServerDemo().then((verified) => {
+          if (!mounted) return;
+          if (!verified) {
+            setStoredDemoUser(null);
+            setUser(null);
+          }
+          setLoading(false);
+        });
       }
-      setLoading(false);
     });
 
     return () => {
@@ -138,22 +175,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = useCallback(
     async (email: string, password: string): Promise<{ error?: string }> => {
+      const cleanEmail = email.trim().toLowerCase();
+
+      if (!cleanEmail) {
+        return { error: "Please enter your work email." };
+      }
+      if (!isValidEmail(cleanEmail)) {
+        return { error: "Please enter a valid email address with a domain extension (e.g. name@organization.gov)." };
+      }
+      if (!password) {
+        return { error: "Please enter your password." };
+      }
+
+      const isDefaultMatch =
+        cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase() &&
+        password === DEFAULT_DEMO_CREDENTIALS.password;
+
+      // Handle demo credentials via server validation endpoint
+      if (isDefaultMatch) {
+        try {
+          const res = await fetch("/api/auth/demo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: cleanEmail, password }),
+          });
+          const data = await res.json();
+          if (res.ok && data.user) {
+            setUser(data.user);
+            setStoredDemoUser(data.user);
+            return {};
+          }
+          return { error: data.error || "Demo authentication failed." };
+        } catch {
+          return { error: "Failed to connect to authentication service." };
+        }
+      }
+
       const supabase = getSupabase();
       if (!supabase) {
-        const cleanEmail = email.trim().toLowerCase();
-        const isDefaultMatch =
-          cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase() &&
-          password === DEFAULT_DEMO_CREDENTIALS.password;
         const isValidCustom = cleanEmail.includes("@") && password.length >= 6;
-
-        if (isDefaultMatch || isValidCustom) {
+        if (isValidCustom) {
           const profile: AuthProfile = {
             id: "planner-demo-01",
             email: cleanEmail,
-            fullName:
-              cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase()
-                ? "Lead Infrastructure Planner"
-                : cleanEmail.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            fullName: cleanEmail.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
             organization: "Metropolitan Development Authority",
             role: "Lead Infrastructure Planner",
             isDemo: true,
@@ -169,31 +234,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password,
       });
 
       if (error) {
-        const cleanEmail = email.trim().toLowerCase();
-        const isDefaultMatch =
-          cleanEmail === DEFAULT_DEMO_CREDENTIALS.email.toLowerCase() &&
-          password === DEFAULT_DEMO_CREDENTIALS.password;
-
-        if (process.env.NODE_ENV !== "production" && isDefaultMatch) {
-          const profile: AuthProfile = {
-            id: "planner-demo-01",
-            email: cleanEmail,
-            fullName: "Lead Infrastructure Planner",
-            organization: "Metropolitan Development Authority",
-            role: "Lead Infrastructure Planner",
-            isDemo: true,
+        const msg = error.message || "";
+        const lower = msg.toLowerCase();
+        if (lower.includes("rate limit") || (error as { status?: number }).status === 429) {
+          return {
+            error: "Too many sign-in attempts. Please wait a few minutes before trying again, or use demo login.",
           };
-          setUser(profile);
-          setStoredDemoUser(profile);
-          return {};
         }
-
-        return { error: error.message };
+        if (lower.includes("invalid login credentials")) {
+          return {
+            error: "Invalid email or password. Please check your credentials or use the Lead Planner demo login.",
+          };
+        }
+        if (lower.includes("email not confirmed")) {
+          return {
+            error: "Please verify your email address before signing in. Check your inbox for the confirmation link.",
+          };
+        }
+        return { error: msg };
       }
 
       if (data.user) {
@@ -211,15 +274,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string,
       meta: { fullName: string; organization?: string; role?: string }
     ): Promise<{ error?: string; needVerification?: boolean }> => {
+      const cleanEmail = email.trim().toLowerCase();
+      const nameValidation = validateFullName(meta.fullName);
+      if (!nameValidation.valid) {
+        return { error: nameValidation.error };
+      }
+
+      if (!isValidEmail(cleanEmail)) {
+        return { error: "Please enter a valid work email address (e.g., name@organization.gov)." };
+      }
+
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return { error: passwordValidation.error };
+      }
+
+      const cleanOrg = meta.organization?.trim().slice(0, 100) || "Metropolitan Authority";
+      const cleanRole = meta.role?.trim().slice(0, 50) || "Lead Infrastructure Planner";
+
       const supabase = getSupabase();
       if (!supabase) {
         // In demo mode, sign up simulates immediate success
         const profile: AuthProfile = {
           id: `usr-${Date.now()}`,
-          email,
-          fullName: meta.fullName || email.split("@")[0],
-          organization: meta.organization || "Metropolitan Authority",
-          role: meta.role || "Lead Infrastructure Planner",
+          email: cleanEmail,
+          fullName: meta.fullName.trim(),
+          organization: cleanOrg,
+          role: cleanRole,
           isDemo: true,
         };
         setUser(profile);
@@ -227,20 +308,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {};
       }
 
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const emailRedirectTo = origin ? `${origin}/auth/callback?next=/onboarding` : undefined;
+
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           data: {
-            full_name: meta.fullName,
-            organization: meta.organization,
-            role: meta.role,
+            full_name: meta.fullName.trim(),
+            organization: cleanOrg,
+            role: cleanRole,
           },
+          emailRedirectTo,
         },
       });
 
       if (error) {
-        return { error: error.message };
+        const msg = error.message || "";
+        const lower = msg.toLowerCase();
+        if (lower.includes("rate limit") || (error as { status?: number }).status === 429) {
+          return {
+            error: "Email rate limit reached. Supabase has temporarily restricted outgoing emails to prevent abuse. Please wait 15–30 minutes before trying again, or use demo login to explore immediately.",
+          };
+        }
+        if (lower.includes("already registered") || lower.includes("user already exists")) {
+          return {
+            error: "An account with this email already exists. Please sign in or reset your password.",
+          };
+        }
+        return { error: msg };
+      }
+
+      // Supabase v2 returns an empty identities array if user already exists
+      if (data.user?.identities && data.user.identities.length === 0) {
+        return {
+          error: "An account with this email already exists. Please sign in or reset your password.",
+        };
       }
 
       if (data.session?.user) {
@@ -254,14 +358,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const signInAsDemo = useCallback((customProfile?: Partial<AuthProfile>) => {
-    const profile: AuthProfile = {
-      ...DEMO_USER,
-      ...customProfile,
-      isDemo: true,
-    };
-    setUser(profile);
-    setStoredDemoUser(profile);
+  const signInAsDemo = useCallback(async (customProfile?: Partial<AuthProfile>): Promise<{ error?: string }> => {
+    try {
+      const res = await fetch("/api/auth/demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is1Click: true, ...customProfile }),
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setUser(data.user);
+        setStoredDemoUser(data.user);
+        return {};
+      }
+      return { error: data.error || "Demo authentication is currently unavailable." };
+    } catch {
+      return { error: "Failed to connect to demo authentication service." };
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -269,6 +382,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
     }
+    await fetch("/api/auth/demo", { method: "DELETE" }).catch(() => {});
     setStoredDemoUser(null);
     setUser(null);
     setSession(null);

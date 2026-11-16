@@ -132,9 +132,24 @@ export function exportReportPdf(report: Report, project: Project | null): void {
   y += 24;
 
   const c = report.content ?? ({} as ReportContent);
+  const d = c.detailedReview;
 
   heading("Executive summary");
+  if (d?.executiveSummary) {
+    body(`Project Health: ${d.executiveSummary.projectHealth} — ${d.executiveSummary.healthExplanation}`, 0, 10);
+    y += 2;
+  }
   body(c.executiveSummary || "No executive summary provided.");
+
+  if (d?.executiveSummary?.keyStrengths?.length) {
+    heading("Key project strengths");
+    d.executiveSummary.keyStrengths.forEach((s) => bullet(s));
+  }
+
+  if (d?.executiveSummary?.keyConcerns?.length) {
+    heading("Most important concerns");
+    d.executiveSummary.keyConcerns.forEach((con) => bullet(con));
+  }
 
   if (c.assumptions?.length) {
     heading("Planning assumptions");
@@ -178,6 +193,27 @@ export function exportReportPdf(report: Report, project: Project | null): void {
     });
   }
 
+  if (d?.actionPlan) {
+    heading("Phased implementation action plan");
+    if (d.actionPlan.immediateActions?.length) {
+      body("Immediate Actions (Next 30 Days):", 0, 10);
+      d.actionPlan.immediateActions.forEach((a) => bullet(`[${a.owner}] ${a.action} — Expected: ${a.expectedOutcome}`));
+    }
+    if (d.actionPlan.shortTermActions?.length) {
+      body("Short-Term Actions (30–90 Days):", 0, 10);
+      d.actionPlan.shortTermActions.forEach((a) => bullet(`[${a.owner}] ${a.action} — Expected: ${a.expectedOutcome}`));
+    }
+  }
+
+  if (d?.conclusion) {
+    heading("Conclusion & outlook");
+    body(d.conclusion.outlook);
+    if (d.conclusion.nextSteps?.length) {
+      body("Next Steps:", 0, 9.5);
+      d.conclusion.nextSteps.forEach((ns) => bullet(ns));
+    }
+  }
+
   if (c.evidence?.length) {
     heading("Evidence and sources");
     table(
@@ -188,5 +224,6 @@ export function exportReportPdf(report: Report, project: Project | null): void {
   }
 
   footer();
-  doc.save(`${report.id}_${report.title.replace(/[^a-z0-9]+/gi, "-").slice(0, 48)}.pdf`);
+  const safeTitle = (report.title || "Report").replace(/[^a-z0-9]+/gi, "-").slice(0, 48);
+  doc.save(`${report.id || "RPT"}_${safeTitle}.pdf`);
 }
